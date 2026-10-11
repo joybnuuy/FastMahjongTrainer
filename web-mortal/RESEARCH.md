@@ -272,3 +272,12 @@
 - 샘플 검증: 기마다 한 판씩 13판 모두 200, 파서(`mjlog.js`)도 1·4·13기 패보를 문제없이 읽는다.
 - 앱: `provider.js` 에 천봉 직접 받기 추가. 대국은 사용자 브라우저가 `tenhou.net` 에서 받아 IndexedDB(`xml:<id>`)에만 캐시. 요청은 순차 1개, 최소 1.5초 간격, 재요청 없음, 다음 대국 1판 미리 받기. 로컬 파일/저장소/천봉을 대국 수 비율로 섞어 고른다. 임의 ID(`/api/game?id=`)도 설정이 켜져 있으면 받아 온다. 메뉴 ②단계를 "대국 데이터"로 바꾸고(천봉 직접 받기 체크 + 접이식 "다른 출처: 저장소/파일"), ⚙ 설정에도 같은 스위치. 기존 저장소 방식은 세미 오프라인용으로 유지.
 - 검증(앱 패널): 저장소 없이 천봉만 켠 상태에서 3판 연속 요청 → 각 1.1~1.3초(받기+분석), 문제 지점 22개, 엔진 분석 정상.
+
+### 2026-10-11 Step 19: 모바일 "Out of memory" 대응 — 엔진을 전용 워커로, 떠날 때 종료
+- 증상(사용자 보고, iPhone 16 + Firefox iOS): V1 화면에서 "엔진 오류: no available backend found. ERR: [wasm] RangeError: Out of memory". PC 는 정상, V4 는 정상, 메인 메뉴로 갔다가 다시 들어오면 된다 → 간헐적이며 이전 페이지가 메모리를 쥔 채일 때 의심. (iOS 의 모든 브라우저는 WebKit 이라 한 탭 메모리 한도가 같다.) 근본 원인은 폰에서 직접 재현하지 못해 미확정.
+- 핵심 사실: wasm 메모리는 한 번 커지면 줄지 않는다. `session.release()` 는 아레나 안에서 풀 뿐 OS 에 돌려주지 못하고, ort 의 `proxy=true` 워커는 외부에서 종료할 수 없다.
+- 변경: 엔진(ort + wasm 코어)을 `core/engine-worker.js` 전용 워커에서 돌리고 메인은 `core/engine-client.js`(RemoteMortal)로 요청한다. `dispose()` = 워커 종료 → 메모리 즉시 반환. `pagehide`(뒤로가기 캐시 포함)·엔진 삭제·메뉴에서 받은 직후 검증 후에 종료. 메인 스레드는 ort/wasm 을 아예 로드하지 않는다. 세션 옵션 `enableCpuMemArena/enableMemPattern=false`. OOM 계열 오류는 "메모리를 확보하지 못했습니다 …새로고침" 안내 문구로 바꿔 표시(ort 는 한 번 초기화에 실패하면 같은 페이지에서 복구 못 함).
+- 검증(PC 앱 패널): V1/V4 분석 동일(문제 지점 22개, 1.1초), 엔진 삭제→받기→검증 후 종료→분석 재개 정상. 폰 검증은 배포 후 필요.
+- 추가(사용자 제보: emscripten-core/emscripten#19374): iOS/macOS WebKit 이 `WebAssembly.Memory`(특히 `shared:true` + 큰 `maximum`)를 페이지 새로고침/이동 때 제대로 해제하지 않아 "RangeError: Out of memory" 가 쌓이는 WebKit 버그(WebKit 256023, 222097). iOS 18 에서 고쳐졌다는 보고가 있으나 일부는 여전히 재현. 우회로로 `mem.buffer` 를 한 번 읽는 방법이 AudioWorklet 사례(WebKit 256023)에서는 통했지만 emscripten 재현 저장소에서는 통하지 않았다는 댓글도 있어 효과는 보장되지 않음. 최대치(MAXIMUM_MEMORY)를 낮추면 완화된다는 보고도 있음.
+  - 우리 상황: onnxruntime 의 wasm 은 `new WebAssembly.Memory({initial:256, maximum:65536, shared:true})` 를 만든다 (공유 메모리, 최대 4GB 선언 = 보고된 조건과 일치). 실제 사용량은 모델 로드 후 분석 3회까지 **43MB** 로 거의 변하지 않음.
+  - 적용(`core/engine-worker.js`): ① `WebAssembly.Memory` 생성자를 감싸 만들자마자 `.buffer` 를 읽음 ② 공유 메모리의 최대치를 65536쪽에서 8192쪽(512MB)으로 낮춤(선언된 import 한도보다 작아 링크 허용). PC 에서 엔진 로드·분석 정상(문제 지점 22개). 폰에서의 효과는 미확인.

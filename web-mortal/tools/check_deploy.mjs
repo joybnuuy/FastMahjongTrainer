@@ -7,7 +7,7 @@ const expect = [
   ['index.html', /text\/html/], ['v4/index.html', /text\/html/], ['v1/index.html', /text\/html/],
   ['v4/style.css', /text\/css/], ['v1/skin.css', /text\/css/], ['core/core.css', /text\/css/],
   ['v4/js/app.js', /javascript/], ['v4/js/table.js', /javascript/], ['v4/js/worker.js', /javascript/], ['v1/js/table-v1.js', /javascript/],
-  ['core/boot.js', /javascript/], ['core/menu.js', /javascript/], ['core/menu.css', /text\/css/], ['core/notebook.js', /javascript/], ['core/idb.js', /javascript/], ['core/provider.js', /javascript/], ['core/settings-ui.js', /javascript/], ['core/mortal-web.js', /javascript/],
+  ['core/boot.js', /javascript/], ['core/menu.js', /javascript/], ['core/menu.css', /text\/css/], ['core/notebook.js', /javascript/], ['core/idb.js', /javascript/], ['core/engine-worker.js', /javascript/], ['core/engine-client.js', /javascript/], ['core/provider.js', /javascript/], ['core/settings-ui.js', /javascript/], ['core/mortal-web.js', /javascript/],
   ['v4/tiles/libre/m1.svg', /image\/svg\+xml/], ['v4/tiles/libre/LICENSE-CC0.txt', null],
   ['vendor/core/mortal_wasm_core.js', /javascript/], ['vendor/core/mortal_wasm_core_bg.wasm', /application\/wasm/],
   ['vendor/ort/ort.wasm.min.mjs', /javascript/], ['vendor/ort/ort-wasm-simd-threaded.mjs', /javascript/], ['vendor/ort/ort-wasm-simd-threaded.wasm', /application\/wasm/],

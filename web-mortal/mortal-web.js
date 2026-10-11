@@ -19,9 +19,13 @@ export class MortalWeb {
   constructor(ort, core, session) { this.ort = ort; this.core = core; this.session = session; }
 
   static async create({ ort, core, model, executionProviders = ['wasm'] }) {
-    const session = await ort.InferenceSession.create(model, { executionProviders });
+    // 메모리 사용을 줄이는 옵션: 입력 크기가 고정이라 메모리 패턴 최적화/메모리 아레나(미리 크게 잡아 두는 풀)는 이득이 작고 모바일에서 부담이 된다.
+    const session = await ort.InferenceSession.create(model, { executionProviders, enableCpuMemArena: false, enableMemPattern: false });
     return new MortalWeb(ort, core, session);
   }
+
+  // 세션의 메모리를 돌려준다 (페이지를 떠날 때/엔진을 바꿀 때). 이후에는 이 객체를 쓸 수 없다.
+  async dispose() { const s = this.session; this.session = null; try { await s?.release(); } catch { /* 무시 */ } }
 
   // enc: Float32Array(OBS_LEN + 46) -> {q: compact Q[], mask: string}
   async #infer(enc) {

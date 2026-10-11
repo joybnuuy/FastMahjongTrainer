@@ -5,7 +5,7 @@
 //  - UI 코드(app.js 등)는 수정하지 않는다. fetch('/api/…') 요청만 가로채 같은 모양의 응답을 돌려준다.
 //  - 문제 지점을 뽑는 모듈(mjlog/mjai/points)은 *현재 페이지*의 js/ 폴더에서 가져온다 → V1/V4 각자의 것을 그대로 사용.
 import * as DB from './idb.js';
-import { MortalWeb } from './mortal-web.js';
+import { RemoteMortal } from './engine-client.js';
 import { handleNotebook } from './notebook.js';
 
 const LS_KEY = 'mjp-store-v1';
@@ -95,21 +95,27 @@ async function getEngineBytes(info) {
   return { bytes, from: 'network' };
 }
 
-// onnxruntime-web + wasm 인코더 코어는 엔진과 무관하게 한 번만 준비한다
-let runtimePromise = null;
-function loadRuntime() {
-  if (runtimePromise) return runtimePromise;
-  runtimePromise = (async () => {
-    const ort = await import(ORT_BASE + 'ort.wasm.min.mjs');
-    ort.env.wasm.wasmPaths = ORT_BASE;
-    ort.env.wasm.numThreads = 1;   // github.io 는 COOP/COEP 헤더를 줄 수 없어 멀티스레드 불가
-    ort.env.wasm.proxy = true;     // 추론을 워커로 → UI 멈춤 방지
-    const core = await import(CORE_JS);
-    await core.default({ module_or_path: CORE_WASM });
-    return { ort, core };
-  })().catch(e => { runtimePromise = null; throw e; });
-  return runtimePromise;
+// 모바일에서 wasm 메모리를 못 잡으면 "no available backend found … RangeError: Out of memory" 처럼 알아보기 어려운 오류가 난다.
+// 원인은 보통 이 기기/브라우저가 한 탭에 허락하는 메모리 한도(다른 탭·앱, 이전 화면이 아직 메모리를 쥐고 있는 경우)라서 안내를 붙인다.
+function friendlyEngineError(e) {
+  const msg = String(e && e.message || e);
+  if (!/out of memory|RangeError|memory/i.test(msg)) return e;
+  const err = new Error('이 기기에서 AI 엔진이 쓸 메모리를 확보하지 못했습니다. 다른 탭·앱을 닫고 이 페이지를 새로고침(또는 브라우저를 완전히 종료한 뒤 다시 열기)해 주세요. 화면을 오가다 생기는 경우가 많습니다. (' + msg.slice(0, 120) + ')');
+  err.oom = true;
+  return err;
 }
+// 페이지를 떠날 때(다른 화면으로 이동, 뒤로가기 캐시 포함) 엔진 메모리를 돌려준다: 이전 화면이 메모리를 쥔 채 새 화면이 열리면 모바일에서 부족해질 수 있다.
+function disposeEngine(id) {
+  const p = enginePromises.get(id); enginePromises.delete(id);
+  if (p) p.then(web => web.dispose()).catch(() => {});
+}
+function releaseEnginesOnLeave() {
+  const ps = [...enginePromises.values()]; enginePromises.clear();
+  for (const p of ps) p.then(web => web.dispose && web.dispose()).catch(() => {});
+  state.engine = 'idle'; state.model = null;
+}
+addEventListener('pagehide', releaseEnginesOnLeave);
+addEventListener('pageshow', e => { if (e.persisted) { state.engine = 'idle'; state.engineMsg = ''; emit(); } });
 
 // 엔진 시작(= 실제 분석 가능한 상태). id 를 생략하면 선택된 엔진.
 const enginePromises = new Map();
@@ -129,14 +135,14 @@ export async function ensureEngine(wanted, { allowDownload = false } = {}) {
       state.engineId = id; state.engine = 'loading'; state.engineMsg = '엔진 준비 중…'; emit();
       const { bytes, from } = await getEngineBytes(info);
       state.engineMsg = '엔진 시작 중…'; emit();
-      const { ort, core } = await loadRuntime();
-      const web = await MortalWeb.create({ ort, core, model: bytes });
+      // onnxruntime + wasm 인코더는 전용 워커 안에서 돌린다 (종료하면 메모리가 확실히 돌아온다). 모델 바이트는 복사해서 넘긴다.
+      const web = await RemoteMortal.create({ model: bytes.slice(), ortUrl: ORT_BASE + 'ort.wasm.min.mjs', ortBase: ORT_BASE, coreJs: CORE_JS, coreWasm: CORE_WASM });
       state.engine = 'ready'; state.engineId = id; state.model = { ...info, from, loadMs: Math.round(performance.now() - t0) };
       state.engineMsg = `${info.name} 준비됨 (${from === 'cache' ? '캐시' : '내려받음'}, ${state.model.loadMs}ms)`;
       markInstalled(info);      // 이 버전의 엔진이 이 브라우저에서 실제로 동작함을 기록
       emit();
       return web;
-    })().catch(e => { enginePromises.delete(id); state.engine = 'error'; state.engineError = e.message; state.engineMsg = '엔진 오류: ' + e.message; emit(); throw e; }));
+    })().catch(e => { enginePromises.delete(id); const err = friendlyEngineError(e); state.engine = 'error'; state.engineError = err.message; state.engineMsg = '엔진 오류: ' + err.message; emit(); throw err; }));
   }
   return enginePromises.get(id);
 }
@@ -146,7 +152,11 @@ export async function installEngine(id, { start = false } = {}) {
   const reg = await getRegistry();
   const info = reg.engines.find(e => e.id === id);
   if (!info) throw new Error('알 수 없는 엔진: ' + id);
-  if (start) return ensureEngine(id, { allowDownload: true });
+  if (start) {   // 받은 뒤 실제로 시작해 동작을 확인하고, 곧바로 종료한다 (메뉴 화면이 엔진 메모리를 쥔 채 다음 화면으로 넘어가지 않게)
+    await ensureEngine(id, { allowDownload: true });
+    disposeEngine(id); state.engine = 'idle'; state.engineMsg = ''; emit();
+    return;
+  }
   await getEngineBytes(info);
   state.engine = state.model ? 'ready' : 'idle'; state.engineMsg = ''; emit();
   markInstalled(info); emit();
@@ -173,7 +183,7 @@ export async function deleteEngine(id) {
   const patch = { engines: inst, removedEngines: { ...(settings.get().removedEngines || {}), [id]: true } };
   if (settings.get().engineId === id) patch.engineId = Object.keys(inst)[0] || null;   // 지운 엔진이 선택돼 있었으면 다른 설치된 엔진으로 (없으면 선택 해제)
   settings.patch(patch);
-  enginePromises.delete(id);
+  disposeEngine(id);
   if (state.engineId === id) { state.engine = 'idle'; state.model = null; state.engineMsg = ''; }
   emit();
   return n;
@@ -182,7 +192,8 @@ export async function deleteEngine(id) {
 export async function deleteAllEngines() {
   const n = await DB.delPrefix(['model:']).catch(() => 0);
   settings.patch({ engines: {}, removedEngines: Object.fromEntries((await getRegistry().catch(() => ({ engines: [] }))).engines.map(e => [e.id, true])) });
-  enginePromises.clear(); state.engine = 'idle'; state.model = null; state.engineMsg = ''; emit();
+  for (const k of [...enginePromises.keys()]) disposeEngine(k);
+  state.engine = 'idle'; state.model = null; state.engineMsg = ''; emit();
   return n;
 }
 // 내려받은 로그 캐시(저장소 샤드 + 천봉에서 받은 패보)만 삭제
