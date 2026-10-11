@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko" data-ui="v1">
+<head>
+<meta charset="utf-8">
+<!-- V1 화면: V4 의 시스템(js/ 전체, 해설, 오답노트)을 그대로 쓰고 화면 구성만 V1식으로 바꾼 페이지.
+     <base> 때문에 상대 경로(js/, tiles/, style.css)가 v4/ (V4 시스템)를 가리킨다. -->
+<base href="../v4/">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12231d">
+<title>속성 마작 연습</title>
+<!-- V4 의 table.js 만 V1식 보드(v1/js/table-v1.js)로 교체. 같은 인터페이스(renderTable/renderHandBar)라 app.js 는 그대로.
+     (import map 미지원 구형 브라우저에서는 V4 테이블이 보일 뿐 동작은 같다) -->
+<script type="importmap">{ "imports": { "./js/table.js": "../v1/js/table-v1.js" } }</script>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../core/core.css">
+<link rel="stylesheet" href="../v1/skin.css">
+</head>
+<body>
+<header id="top">
+  <h1>속성 마작 연습 <small>실제 텐호우 봉황방 대국에서 뽑은 한 장면씩</small></h1>
+  <nav id="tabs">
+    <button data-mode="eff" class="on"><span class="lg">① 타패 효율</span><span class="sm">효율</span></button>
+    <button data-mode="def"><span class="lg">② 리치 방어</span><span class="sm">방어</span></button>
+    <button data-mode="danger"><span class="lg">③ 위험패 찾기</span><span class="sm">위험패</span></button>
+    <button data-mode="tenpai"><span class="lg">④ 텐파이 감</span><span class="sm">텐파이</span></button>
+    <button data-mode="notebook"><span class="lg">📒 오답노트</span><span class="sm">📒</span></button>
+  </nav>
+  <div id="statline"></div>
+</header>
+
+<main>
+  <section id="stage">
+    <div id="strip"></div>
+    <div id="board"></div>
+    <div id="panel">
+      <div id="prompt"></div>
+      <div id="handwrap"></div>
+      <div id="controls"></div>
+    </div>
+  </section>
+
+  <section id="result" hidden>
+    <div id="feedback"></div>
+    <div id="actions"><button id="next" class="primary big">다음 문제 (Enter)</button></div>
+  </section>
+</main>
+
+<footer>
+  <span id="status"></span>
+  <form id="custom">
+    <input id="logid" placeholder="특정 대국 로그 ID 또는 URL" size="42">
+    <button>이 대국으로 연습</button>
+    <button type="button" id="random">랜덤으로</button>
+  </form>
+  <details id="notes">
+    <summary>오답노트 (디버그) · <span id="notecount">0</span>개 · <span class="muted">내보내기는 ⚙ 설정</span></summary>
+    <div id="notelist"></div>
+  </details>
+</footer>
+<script type="module" src="../core/boot.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

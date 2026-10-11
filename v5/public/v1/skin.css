@@ -1,0 +1,57 @@
+/* V1 화면 스킨: V4 의 style.css 위에 덮어써서 V1처럼 보이게 한다 (흐름형 카드 레이아웃, V1 팔레트, 좌석별 행 보드).
+   모든 규칙은 html[data-ui="v1"] 아래에만 적용 → V4 화면에는 영향 없음. 명시도가 V4 규칙보다 높아 media query 안의 V4 규칙도 이긴다. */
+html[data-ui="v1"] {
+  --bg: #12231d; --panel: #1b3329; --panel2: #234236; --mute: #93aa9f;
+}
+
+/* ---- 헤더: 제목 + 탭(라벨 전체) + 상태줄, 폭 980px ---- */
+html[data-ui="v1"] #top { height: auto; display: block; position: relative; max-width: 980px; margin: 0 auto; padding: 10px 16px; }
+html[data-ui="v1"] #top h1 { font-size: 20px; margin: 6px 0; padding-right: 48px; }
+html[data-ui="v1"] #top h1 small { font-size: 12px; color: var(--mute); font-weight: 400; margin-left: 8px; }
+html[data-ui="v1"] #tabs { flex-wrap: wrap; gap: 6px; }
+html[data-ui="v1"] #tabs button { border-radius: 8px; padding: 8px 14px; font-size: 15px; }
+html[data-ui="v1"] #tabs .lg { display: inline; }
+html[data-ui="v1"] #tabs .sm { display: none; }
+html[data-ui="v1"] #statline { margin: 6px 0 0; font-size: 13px; white-space: normal; }
+html[data-ui="v1"] #top > .mjp-gear { position: absolute; right: 16px; top: 8px; margin: 0; }
+html[data-ui="v1"] #top > .mjp-chip { position: absolute; right: 60px; top: 16px; margin: 0; max-width: 50vw; }
+
+/* ---- 본문: 100dvh 고정 레이아웃을 풀고 카드가 위에서 아래로 흐르게 ---- */
+html[data-ui="v1"] main { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+html[data-ui="v1"] #stage { display: block; height: auto; min-height: 0; padding: 0; }
+html[data-ui="v1"] #strip { display: none; }                       /* 점수는 좌석 행에 있다 */
+html[data-ui="v1"] #board, html[data-ui="v1"] #panel, html[data-ui="v1"] #result {
+  display: block; background: var(--panel); border-radius: 12px; padding: 12px 14px; margin: 10px 0; max-width: none; overflow: visible;
+}
+html[data-ui="v1"] #board:empty, html[data-ui="v1"] #panel:empty { display: none; }
+html[data-ui="v1"] #panel { min-height: 0; }
+html[data-ui="v1"] #prompt { text-align: left; color: var(--mute); margin-bottom: 4px; }
+html[data-ui="v1"] #handwrap { justify-content: flex-start; }
+html[data-ui="v1"] #controls { justify-content: flex-start; }
+html[data-ui="v1"] #result { padding: 12px 14px; }
+html[data-ui="v1"] footer { max-width: 980px; padding: 10px 16px 22px; }
+
+/* ---- V1식 보드 (table-v1.js) ---- */
+html[data-ui="v1"] .v1board { width: 100%; }
+html[data-ui="v1"] .v1info { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; margin-bottom: 8px; font-size: 14px; }
+html[data-ui="v1"] .v1info b { color: var(--accent); }
+html[data-ui="v1"] .v1info .tile { margin: 0 0 2px; vertical-align: middle; }
+html[data-ui="v1"] .v1seat { display: grid; grid-template-columns: 112px 1fr; gap: 8px; padding: 6px 0; border-top: 1px solid #2c4a3d; align-items: start; }
+html[data-ui="v1"] .v1seat:first-of-type { border-top: 0; }
+html[data-ui="v1"] .v1who { font-size: 13px; color: var(--mute); }
+html[data-ui="v1"] .v1who b { color: var(--ink); font-size: 14px; }
+html[data-ui="v1"] .v1badge { display: inline-block; background: var(--bad); color: #fff; border-radius: 10px; padding: 0 8px; font-size: 12px; font-weight: 700; margin-left: 4px; }
+html[data-ui="v1"] .v1line { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+html[data-ui="v1"] .v1river { display: flex; flex-wrap: wrap; align-content: flex-start; width: calc((26px + 2px) * 6 + 14px); }
+html[data-ui="v1"] .v1river .tile { margin: 0 1px 2px; }
+html[data-ui="v1"] .v1river .v1-called { opacity: .35; }
+html[data-ui="v1"] .v1river .v1-rot { transform: rotate(90deg); margin: 0 6px 2px; }
+html[data-ui="v1"] .v1melds { display: flex; gap: 8px; flex-wrap: wrap; }
+html[data-ui="v1"] .v1meld { background: #00000022; padding: 1px 3px; border-radius: 4px; display: flex; }
+html[data-ui="v1"] .v1meld .tile { margin: 0 1px 2px; }
+html[data-ui="v1"] .v1-dim { opacity: .5; }
+html[data-ui="v1"] .v1reveal { display: flex; flex-wrap: wrap; align-items: flex-end; margin-top: 4px; padding: 4px 6px; background: #f0c24b1a; border-radius: 6px; }
+html[data-ui="v1"] .v1reveal[hidden] { display: none; }
+html[data-ui="v1"] .v1reveal .tile { margin: 0 1px 2px; }
+html[data-ui="v1"] .v1rlabel { font-size: 12px; color: var(--accent); margin-right: 8px; align-self: center; }
+@media (max-width: 600px) { html[data-ui="v1"] .v1seat { grid-template-columns: 1fr; } html[data-ui="v1"] .v1who br { display: none; } }

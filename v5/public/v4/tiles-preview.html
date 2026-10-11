@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>패 미리보기</title>
+<link rel="stylesheet" href="style.css">
+<style>body{padding:20px} .row{display:flex;flex-wrap:wrap;margin-bottom:14px;gap:2px} h3{margin:10px 0 4px;color:#9fbfae;font-size:13px}</style></head>
+<body>
+<div id="out"></div>
+<script type="module">
+import { tileEl, backEl } from './js/tiles.js';
+const out = document.getElementById('out');
+const sec = (title, kinds, cls, reds = []) => {
+  const h = document.createElement('h3'); h.textContent = title; out.append(h);
+  const r = document.createElement('div'); r.className = 'row';
+  for (const k of kinds) r.append(tileEl(k, { cls }));
+  for (const k of reds) r.append(tileEl(k, { cls, red: true }));
+  out.append(r);
+};
+const R = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+sec('만수', R(0, 8), 't-hand', [4]);
+sec('통수', R(9, 17), 't-hand', [13]);
+sec('삭수', R(18, 26), 't-hand', [22]);
+sec('자패', R(27, 33), 't-hand');
+const r = document.createElement('div'); r.className = 'row'; r.append(backEl('t-hand'), backEl('t-river'), tileEl(31, { cls: 't-river' }), tileEl(17, { cls: 't-river' }), tileEl(26, { cls: 't-river' })); out.append(r);
+</script></body></html>

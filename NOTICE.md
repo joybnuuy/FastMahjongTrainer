@@ -15,6 +15,9 @@ GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later). 전문: [LI
   나머지 fp16 저장, 원본을 교사로 한 증류 미세조정(QAT). 미세조정 입력은 공개 대국 로그에서 만든 관측 텐서이며 로그 자체는 포함하지 않습니다.
 - 모델 가중치 파일은 이 소스 저장소에 포함되어 있지 않습니다 (배포 산출물에만 있음).
 
+## 패 이미지
+`v5/public/v4/tiles/libre/*.svg` — libreriichi-assets (<https://codeberg.org/davidgomez/libreriichi-assets>), CC0 1.0. 라이선스 사본은 `v4/tiles/libre/LICENSE-CC0.txt`.
+
 ## onnxruntime-web
 MIT License, Microsoft. 배포 산출물의 `vendor/ort/`.
 

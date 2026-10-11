@@ -1,16 +1,16 @@
-// app/ 을 GitHub Pages 저장소의 하위 폴더로 복사한다 (커밋/푸시는 하지 않는다).
+// v5/dist 를 GitHub Pages 저장소의 하위 폴더로 복사한다 (커밋/푸시는 하지 않는다).
 // 사용: node web-mortal/tools/stage_pages.mjs [--dest <저장소 경로>] [--subdir mahjong] [--clean]
 //   --dest   기본: web-mortal/deploy  (joybnuuy.github.io 를 로컬에 클론했다면 그 경로를 지정)
 //   --subdir 기본: mahjong            → 결과 주소: https://<사용자>.github.io/<subdir>/
 //   --clean  복사 전에 <dest>/<subdir> 만 비운다 (그 밖의 파일은 절대 건드리지 않음)
-// 복사 전에 안전 점검: 로그 데이터, 개인 식별 정보, S4 주소/계정 ID 가 app/ 안에 섞여 있으면 중단한다.
+// 복사 전에 안전 점검: 로그 데이터, 개인 식별 정보, S4 주소/계정 ID 가 v5/dist 안에 섞여 있으면 중단한다.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { personalPattern } from './guard.mjs';
 
-const WM =path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const APP = path.join(WM, 'app');
+const WM = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const APP = path.join(WM, '..', 'v5', 'dist');   // node v5/tools/build.mjs 의 산출물
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i >= 0 ? process.argv[i + 1] : d; };
 const DEST = path.resolve(arg('--dest', path.join(WM, 'deploy')));
 const SUB = String(arg('--subdir', 'mahjong')).replace(/^\/+|\/+$/g, '');
@@ -19,6 +19,7 @@ if (!SUB || SUB.includes('..') || SUB.includes('\\')) throw new Error('--subdir 
 const TARGET = path.join(DEST, SUB);
 
 const walk = (d, out = []) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); e.isDirectory() ? walk(p, out) : out.push(p); } return out; };
+if (!fs.existsSync(APP)) { console.error('v5/dist 가 없습니다. 먼저 node v5/tools/build.mjs 를 실행하세요.'); process.exit(1); }
 const files = walk(APP);
 
 // ---- 안전 점검 ----

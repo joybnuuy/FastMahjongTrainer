@@ -14,7 +14,7 @@ const DEST = arg('--dest') && path.resolve(arg('--dest'));
 const DRY = process.argv.includes('--dry');
 if (!DEST) { console.error('사용법: node export_source.mjs --dest <저장소 경로> [--dry]'); process.exit(2); }
 
-const SKIP_DIR = new Set(['node_modules', 'target', '__pycache__', 'out', 'pkg', 'store-out', 'deploy', 's4-test', 'templates', '.venv', '.git']);
+const SKIP_DIR = new Set(['node_modules', 'target', '__pycache__', 'out', 'pkg', 'store-out', 'deploy', 'dist', 's4-test', 'templates', '.venv', '.git']);
 const walk = (rel) => {
   const abs = path.join(ROOT, rel);
   if (!fs.existsSync(abs)) return [];
@@ -34,7 +34,7 @@ const files = [
   'ai/analyze.py', 'ai/client.js',
   ...top('web-mortal', /\.(py|js|mjs)$/), 'web-mortal/RESEARCH.md', 'web-mortal/package.json', 'web-mortal/package-lock.json',
   ...walk('web-mortal/tools'),
-  'web-mortal/app/index.html', 'web-mortal/app/app.css', 'web-mortal/app/js/provider.js', 'web-mortal/app/js/settings-ui.js',
+  ...walk('v5/public'), ...walk('v5/tools'), 'v5/README.md',   // V5: 화면(V4/V1)·코어 소스와 조립 스크립트 (dist 는 제외)
   'web-mortal/wasm-core/Cargo.toml', 'web-mortal/wasm-core/Cargo.lock', 'web-mortal/wasm-core/LICENSE', ...walk('web-mortal/wasm-core/src'),
 ].filter(f => fs.existsSync(path.join(ROOT, f)));
 const uniq = [...new Set(files)];

@@ -1,0 +1,37 @@
+/* V5 공통(설정 창, ⚙ 버튼) — V1/V4 화면 모두에서 사용. 접두사 mjp- 로 기존 스타일과 충돌을 피한다. */
+.mjp-gear { margin-left: auto; flex: none; background: transparent; color: inherit; border: 1px solid #ffffff40; border-radius: 999px; width: 34px; height: 34px;
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 0; }
+.mjp-chip { margin-left: auto; font-size: 11px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+.mjp-chip:not([hidden]) + .mjp-gear { margin-left: 8px; }
+header > .mjp-gear, header > .mjp-chip { align-self: center; }
+
+dialog#mjp-settings { width: min(580px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; border: 1px solid #355848; border-radius: 12px; padding: 14px 16px;
+  background: #16261f; color: #e8f1ec; font: 14px/1.5 system-ui, "Malgun Gothic", sans-serif; }
+dialog#mjp-settings::backdrop { background: rgba(0, 0, 0, .55); }
+dialog#mjp-settings h2 { margin: 0 0 6px; font-size: 18px; }
+dialog#mjp-settings h3 { margin: 14px 0 4px; font-size: 14px; color: #f0c850; }
+dialog#mjp-settings h3 small { color: #9db8aa; font-weight: 400; }
+dialog#mjp-settings code { background: #ffffff18; padding: 0 4px; border-radius: 3px; }
+dialog#mjp-settings a { color: #8fd3ff; }
+dialog#mjp-settings input[type=url] { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 6px; border: 1px solid #355848; background: #0e1a15; color: inherit; }
+dialog#mjp-settings button, dialog#mjp-settings .mjp-file { background: #1f3a2e; color: inherit; border: 1px solid #355848; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+dialog#mjp-settings button.mjp-primary { background: #f0c850; color: #2b2205; border-color: #f0c850; font-weight: 700; }
+.mjp-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+.mjp-end { justify-content: flex-end; }
+.mjp-muted { color: #9db8aa; font-size: 12px; margin: 4px 0; }
+.mjp-about { margin-top: 14px; }
+.mjp-radio { display: block; margin: 6px 0; cursor: pointer; }
+
+/* V4 헤더(#top)는 가로 flex: 탭이 줄어들 수 있게 하고, 아주 좁은 화면에서는 탭 여백을 줄여 ⚙가 화면 밖으로 밀리지 않게 한다 */
+html[data-ui="v4"] #top { gap: 6px; }
+html[data-ui="v4"] #tabs { flex: 0 1 auto; }
+@media (max-width: 340px) {
+  html[data-ui="v4"] #tabs { gap: 3px; }
+  html[data-ui="v4"] #tabs button { padding: 6px 5px; font-size: 12px; }
+  .mjp-gear { width: 30px; height: 30px; font-size: 16px; }
+}
+
+.mjp-linkbtn { display: inline-block; background: #1f3a2e; color: inherit !important; border: 1px solid #355848; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; text-decoration: none; }
+
+.mjp-select { width: 100%; padding: 7px 9px; border-radius: 6px; border: 1px solid #355848; background: #0e1a15; color: inherit; margin-top: 4px; }
+dialog#mjp-settings button.mjp-danger { border-color: #8a3b3b; color: #ffb4b4; }

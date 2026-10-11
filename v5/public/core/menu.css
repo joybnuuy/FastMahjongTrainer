@@ -1,0 +1,51 @@
+/* 메인 메뉴(설정) 화면 */
+:root { --bg: #101c18; --panel: #19302a; --panel2: #223f36; --ink: #eaf2ee; --mute: #93aa9f; --accent: #f0c24b; --good: #5fd08b; --bad: #ef6b6b; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, "Malgun Gothic", sans-serif; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+[hidden] { display: none !important; }
+#menu { max-width: 640px; margin: 0 auto; padding: 22px 16px 40px; }
+h1 { font-size: 24px; margin: 8px 0 4px; }
+h2 { font-size: 16px; margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+.lead { color: var(--mute); margin: 0 0 16px; }
+.card { background: var(--panel); border-radius: 12px; padding: 14px 16px; margin: 12px 0; border: 1px solid transparent; }
+.card.done { border-color: #2f6b4c; }
+.badge { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--panel2); color: var(--accent); font-size: 14px; font-weight: 800; }
+.card.done .badge { background: var(--good); color: #0e2a1a; }
+.muted { color: var(--mute); font-size: 13px; margin: 4px 0; }
+.muted code, code { background: #ffffff18; padding: 0 4px; border-radius: 3px; }
+a { color: #8cc8ff; }
+.row { display: flex; gap: 8px; margin: 10px 0 4px; flex-wrap: wrap; }
+input[type=url] { width: 100%; padding: 9px 10px; border-radius: 8px; border: 1px solid #355848; background: #0e1a15; color: inherit; font-size: 14px; }
+button { font: inherit; background: var(--panel2); color: var(--ink); border: 1px solid #355848; padding: 9px 14px; border-radius: 8px; cursor: pointer; }
+button.primary { background: var(--accent); color: #2b2205; border-color: var(--accent); font-weight: 700; }
+button:disabled { opacity: .4; cursor: default; }
+progress { width: 100%; height: 10px; margin-top: 8px; accent-color: var(--accent); }
+.alt { margin-top: 10px; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+.choice { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 14px; border-radius: 12px; background: var(--panel); border: 2px solid #355848; }
+.choice b { font-size: 17px; }
+.choice span { color: var(--mute); font-size: 12px; }
+.choice:not(:disabled):hover { border-color: var(--accent); }
+.choice.sel { border-color: var(--accent); background: var(--panel2); }
+.choice.sel b::after { content: ' ✓'; color: var(--accent); }
+button.big { width: 100%; padding: 14px; font-size: 17px; border-radius: 12px; margin-top: 6px; }
+footer { margin-top: 28px; }
+@media (max-width: 460px) { .choices { grid-template-columns: 1fr; } }
+
+/* 엔진 목록 */
+.engine { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; margin: 8px 0; background: var(--panel2); border: 2px solid transparent; border-radius: 10px; cursor: pointer; }
+.engine.sel { border-color: var(--accent); }
+.engine .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--mute); }
+.engine.sel .dot { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 45%, transparent 50%); }
+.engine .nm { font-weight: 700; }
+.engine .ds { grid-column: 2 / 3; color: var(--mute); font-size: 12px; }
+.engine .st { grid-column: 2 / 3; font-size: 12px; }
+.engine .st.ok { color: var(--good); } .engine .st.no { color: var(--mute); } .engine .st.old { color: var(--accent); }
+.engine .ac { grid-column: 3 / 4; grid-row: 1 / 4; display: flex; flex-direction: column; gap: 6px; }
+.engine .ac button { padding: 6px 10px; font-size: 13px; }
+button.danger { border-color: #8a3b3b; color: #ffb4b4; }
+details#manage { margin-top: 20px; background: var(--panel); border-radius: 12px; padding: 10px 14px; }
+details#manage summary { cursor: pointer; font-weight: 700; }
+.manage-help { margin: 8px 0 0; padding-left: 18px; }
+
+button.armed { background: #8a3b3b; color: #fff; border-color: #c25; }

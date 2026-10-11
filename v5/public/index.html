@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101c18">
+<title>속성 마작 연습</title>
+<link rel="stylesheet" href="core/menu.css">
+</head>
+<body>
+<main id="menu">
+  <h1>속성 마작 연습</h1>
+  <p class="lead">실제 천봉 봉황방 대국에서 뽑은 장면으로 연습합니다. 채점하는 Mortal AI는 <b>이 기기 안에서</b> 돌아가며, 서버가 필요 없습니다.</p>
+
+  <div id="redirecting" class="card" hidden>설정이 끝나 있어서 바로 이동합니다…</div>
+
+  <section id="setup" hidden>
+    <div class="card" id="c-engine">
+      <h2><span class="badge" id="b-engine">①</span> 엔진 (Mortal 모델)</h2>
+      <p class="muted">AI 모델 파일을 이 기기에 내려받습니다. 엔진이 여러 개면 하나를 골라 쓰고, 안 쓰는 엔진은 지울 수 있습니다. 실행 프로그램(약 15MB)은 모든 엔진이 함께 쓰며 브라우저 캐시에 저장됩니다.</p>
+      <div id="engine-list"></div>
+      <progress id="engine-prog" max="1" value="0" hidden></progress>
+      <p id="engine-msg" class="muted"></p>
+    </div>
+
+    <div class="card" id="c-store">
+      <h2><span class="badge" id="b-store">②</span> 데이터 저장소</h2>
+      <p class="muted">연습에 쓸 대국 로그가 있는 폴더 주소입니다 (<code>manifest.json</code>이 있는 https 주소). 이 주소는 이 브라우저에만 저장됩니다.</p>
+      <input id="store-url" type="url" placeholder="https://…/폴더/" autocomplete="off" spellcheck="false">
+      <div class="row"><button id="store-go" class="primary">연결 테스트 후 저장</button></div>
+      <p id="store-msg" class="muted"></p>
+      <p class="muted alt">저장소가 없다면 <a href="#" id="files-only">로그 파일(.xml)만 직접 불러서 쓰기</a> — 화면 안의 ⚙ 설정에서 파일을 가져옵니다.</p>
+    </div>
+  </section>
+
+  <section id="launch" hidden>
+    <div class="card" id="c-ui">
+      <h2><span class="badge" id="b-ui">③</span> 화면</h2>
+      <p class="muted">두 화면은 기능이 같습니다 (이론 해설, 위험패 찾기, 오답노트). 고르기만 하고 이동하지는 않습니다. 나중에 ⚙ 설정에서 바꿀 수 있습니다.</p>
+      <div class="choices" role="radiogroup" aria-label="화면 선택">
+        <button id="pick-v4" class="choice" role="radio" aria-checked="false">
+          <b>V4 화면</b><span>모바일 우선 · 실제 마작 테이블 배치</span>
+        </button>
+        <button id="pick-v1" class="choice" role="radio" aria-checked="false">
+          <b>V1 화면</b><span>목록형 · 좌석별 행으로 보는 보드</span>
+        </button>
+      </div>
+    </div>
+    <button id="start" class="primary big" disabled>시작하기</button>
+    <p id="start-hint" class="muted"></p>
+  </section>
+
+  <details id="manage">
+    <summary>저장 공간 관리 (지우기)</summary>
+    <p class="muted">엔진은 위 ① 카드에서 하나씩 삭제합니다. 오답노트는 아래 어떤 항목으로도 지워지지 않습니다.</p>
+    <div class="row">
+      <button id="clr-logs">로그 캐시 지우기</button>
+      <button id="clr-settings">설정 초기화</button>
+      <button id="clr-all" class="danger">모두 지우기</button>
+    </div>
+    <ul class="muted manage-help">
+      <li><b>로그 캐시</b>: 내려받아 둔 대국 로그(저장소 주소는 유지, 다시 받으면 됨)</li>
+      <li><b>설정 초기화</b>: 저장소 주소·화면·엔진 선택·설치 기록 (내려받은 파일은 그대로)</li>
+      <li><b>모두 지우기</b>: 모든 엔진 + 로그 캐시 + 설정</li>
+    </ul>
+  </details>
+
+  <footer>
+    <p class="muted">이 메뉴는 화면 안의 ⚙ 설정 → <b>메인 메뉴</b>로 다시 열 수 있습니다.</p>
+    <p class="muted">라이선스: 앱 AGPL-3.0 · 모델 가중치 Apache-2.0(수정본) · 패 이미지 CC0 · <a href="NOTICE.md">NOTICE</a> · <a href="SOURCE.md">소스 코드</a> · <a href="LICENSE">LICENSE</a></p>
+  </footer>
+</main>
+<script type="module" src="core/menu.js"></script>
+</body>
+</html>

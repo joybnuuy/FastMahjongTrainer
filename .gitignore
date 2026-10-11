@@ -10,15 +10,7 @@ web-mortal/out/
 web-mortal/pkg/
 web-mortal/deploy/
 web-mortal/store-out/
-web-mortal/app/js/*
-!web-mortal/app/js/provider.js
-!web-mortal/app/js/settings-ui.js
-web-mortal/app/vendor/
-web-mortal/app/model/
-web-mortal/app/style.css
-web-mortal/app/LICENSE
-web-mortal/app/NOTICE.md
-web-mortal/app/SOURCE.md
+v5/dist/
 
 # 데이터 / 모델 — 저장소에 올리지 않음 (로그의 재배포는 서비스 약관 확인 후 본인 책임)
 cache/

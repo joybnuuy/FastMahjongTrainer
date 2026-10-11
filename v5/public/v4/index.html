@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko" data-ui="v4">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101c18">
+<title>속성 마작 연습</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../core/core.css">
+</head>
+<body>
+<header id="top">
+  <nav id="tabs">
+    <button data-mode="eff" class="on"><span class="lg">① 타패 효율</span><span class="sm">효율</span></button>
+    <button data-mode="def"><span class="lg">② 리치 방어</span><span class="sm">방어</span></button>
+    <button data-mode="danger"><span class="lg">③ 위험패 찾기</span><span class="sm">위험패</span></button>
+    <button data-mode="tenpai"><span class="lg">④ 텐파이 감</span><span class="sm">텐파이</span></button>
+    <button data-mode="notebook"><span class="lg">📒 오답노트</span><span class="sm">📒</span></button>
+  </nav>
+  <div id="statline"></div>
+</header>
+
+<main>
+  <!-- 문제 화면: 뷰포트를 거의 다 쓰는 테이블 + 손패/조작 -->
+  <section id="stage">
+    <div id="strip"></div>
+    <div id="board"></div>
+    <div id="panel">
+      <div id="prompt"></div>
+      <div id="handwrap"></div>
+      <div id="controls"></div>
+    </div>
+  </section>
+
+  <!-- 정답/해설: 선택 후 아래로 스크롤해서 보는 영역 -->
+  <section id="result" hidden>
+    <div id="feedback"></div>
+    <div id="actions"><button id="next" class="primary big">다음 문제 (Enter)</button></div>
+  </section>
+</main>
+
+<footer>
+  <span id="status"></span>
+  <form id="custom">
+    <input id="logid" placeholder="특정 대국 로그 ID 또는 URL" size="30">
+    <button>이 대국으로 연습</button>
+    <button type="button" id="random">랜덤으로</button>
+  </form>
+  <details id="notes">
+    <summary>오답노트 (디버그) · <span id="notecount">0</span>개 · <span class="muted">내보내기는 ⚙ 설정</span></summary>
+    <div id="notelist"></div>
+  </details>
+</footer>
+<script type="module" src="../core/boot.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
