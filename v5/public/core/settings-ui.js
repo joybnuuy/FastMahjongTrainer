@@ -1,7 +1,7 @@
 // 설정 창 (V1/V4 화면 공통): ⚙ 버튼과 대화상자를 JS로 만들어 현재 페이지 헤더에 붙인다.
 import {
   settings, state, onState, connectStore, disconnectStore, importFiles, ensureEngine, getRegistry, pickEngineId, installedEngines, isInstalled,
-  useEngine, deleteEngine, clearLogCache,
+  useEngine, deleteEngine, clearLogCache, loadTenhouList,
 } from './provider.js';
 import { exportNotebook, importNotebook, notebookCount } from './notebook.js';
 
@@ -20,7 +20,13 @@ const html = `
   </section>
 
   <section>
-    <h3>데이터 저장소</h3>
+    <h3>대국 데이터</h3>
+    <label class="mjp-radio"><input type="checkbox" id="mjp-tenhou"> <b>천봉에서 직접 받기</b> — 천봉명인전 패보 ID 목록 (패보는 이 브라우저가 천봉에서 한 판씩 천천히 받아 이 기기에만 저장)</label>
+    <p id="mjp-tenhou-now" class="mjp-muted"></p>
+  </section>
+
+  <section>
+    <h3>데이터 저장소 (선택)</h3>
     <p class="mjp-muted"><code>manifest.json</code>과 샤드(<code>shard-NNN.json.gz</code>)가 있는 폴더의 주소 (https, CORS 허용 필요). 이 주소는 이 브라우저에만 저장됩니다.</p>
     <input id="mjp-store-url" type="url" placeholder="https://…/폴더/" autocomplete="off" spellcheck="false">
     <div class="mjp-row"><button id="mjp-store-save" class="mjp-primary">연결 테스트 후 저장</button><button id="mjp-store-clear">연결 해제</button></div>
@@ -68,7 +74,8 @@ const chip = document.createElement('span'); chip.className = 'mjp-chip'; chip.h
 const gear = document.createElement('button'); gear.className = 'mjp-gear'; gear.type = 'button'; gear.title = '설정'; gear.setAttribute('aria-label', '설정'); gear.textContent = '⚙';
 host.append(chip, gear);
 
-const openDlg = () => { $('#mjp-store-url').value = settings.get().storeBase || ''; refreshNb(); if (!dlg.open) dlg.showModal(); };
+if (settings.get().tenhou) loadTenhouList().catch(() => {});
+const openDlg = () => { $('#mjp-store-url').value = settings.get().storeBase || ''; $('#mjp-tenhou').checked = !!settings.get().tenhou; refreshNb(); if (!dlg.open) dlg.showModal(); };
 gear.onclick = () => openDlg();
 $('#mjp-close').onclick = () => dlg.close();
 
@@ -91,6 +98,7 @@ $('#mjp-store-save').onclick = async () => {
     out.textContent = `연결됨: 대국 ${s.games}판 · 샤드 ${s.shards}개 · 응답 ${s.ms}ms`;
   } catch (e) { out.textContent = '실패: ' + e.message; }
 };
+$('#mjp-tenhou').onchange = e => settings.patch({ tenhou: e.target.checked });
 $('#mjp-store-clear').onclick = () => { disconnectStore({ forget: true }); $('#mjp-store-url').value = ''; $('#mjp-store-msg').textContent = '연결을 해제했습니다.'; };
 
 // ---- 로컬 로그 ----
@@ -164,6 +172,7 @@ onState(s => {
   $('#mjp-model').textContent = s.model
     ? `${s.model.name} · ${(s.model.bytes / 1e6).toFixed(1)}MB · v${s.model.version} · ${s.model.from === 'cache' ? '캐시에서' : '네트워크에서'} 로딩 ${s.model.loadMs}ms`
     : (s.engineMsg || '아직 로딩 전 (처음 분석할 때 자동으로 내려받습니다)');
+  $('#mjp-tenhou-now').textContent = s.tenhouGames ? `ID ${s.tenhouGames}판 · 이 기기에 받아 둔 패보 ${s.tenhouCached}판` : '';
   $('#mjp-store-now').textContent = s.store ? `현재 연결: ${s.store.base} (대국 ${s.store.games}판)` : (s.storeError ? `자동 연결 실패: ${s.storeError}` : '연결 안 됨');
   $('#mjp-sync').textContent = !s.sync ? '' : s.sync.finished
     ? `로그 ${s.store ? s.store.games : 0}판 캐시 완료${s.sync.error ? ' (일부 실패: ' + s.sync.error + ')' : ' — 이후 오프라인에서도 동작합니다'}`

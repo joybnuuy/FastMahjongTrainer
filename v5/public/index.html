@@ -24,12 +24,18 @@
     </div>
 
     <div class="card" id="c-store">
-      <h2><span class="badge" id="b-store">②</span> 데이터 저장소</h2>
-      <p class="muted">연습에 쓸 대국 로그가 있는 폴더 주소입니다 (<code>manifest.json</code>이 있는 https 주소). 이 주소는 이 브라우저에만 저장됩니다.</p>
-      <input id="store-url" type="url" placeholder="https://…/폴더/" autocomplete="off" spellcheck="false">
-      <div class="row"><button id="store-go" class="primary">연결 테스트 후 저장</button></div>
-      <p id="store-msg" class="muted"></p>
-      <p class="muted alt">저장소가 없다면 <a href="#" id="files-only">로그 파일(.xml)만 직접 불러서 쓰기</a> — 화면 안의 ⚙ 설정에서 파일을 가져옵니다.</p>
+      <h2><span class="badge" id="b-store">②</span> 대국 데이터</h2>
+      <p class="muted">연습에 쓸 대국의 출처입니다. 하나 이상 고르세요.</p>
+      <label class="opt"><input type="checkbox" id="tenhou-on"> <span><b>천봉에서 직접 받기</b> <span id="tenhou-count"></span><br>
+        <span class="muted">천봉명인전(프로 대국) 패보 ID 목록이 들어 있습니다. 패보 본문은 앱에 없고, 이 브라우저가 천봉(tenhou.net)에서 한 판씩 천천히 직접 받아 이 기기에만 저장합니다.</span></span></label>
+      <p id="tenhou-msg" class="muted"></p>
+      <details id="more-src"><summary>다른 출처 — 데이터 저장소 / 로그 파일</summary>
+        <p class="muted">직접 모아 둔 대국 로그가 있는 폴더 주소입니다 (<code>manifest.json</code>이 있는 https 주소). 이 주소는 이 브라우저에만 저장됩니다.</p>
+        <input id="store-url" type="url" placeholder="https://…/폴더/" autocomplete="off" spellcheck="false">
+        <div class="row"><button id="store-go" class="primary">연결 테스트 후 저장</button></div>
+        <p id="store-msg" class="muted"></p>
+        <p class="muted alt">저장소가 없다면 <a href="#" id="files-only">로그 파일(.xml)만 직접 불러서 쓰기</a> — 화면 안의 ⚙ 설정에서 파일을 가져옵니다.</p>
+      </details>
     </div>
   </section>
 

@@ -1,4 +1,4 @@
-// 메인 메뉴(= 설정 화면, 사이트 루트): ① 엔진 ② 데이터 저장소 ③ 화면 선택 → "시작하기"
+// 메인 메뉴(= 설정 화면, 사이트 루트): ① 엔진 ② 대국 데이터 ③ 화면 선택 → "시작하기"
 //
 // 이동 규칙 (설정을 하는 도중에 화면이 바뀌지 않도록):
 //  - 화면(V4/V1) 선택과 엔진 선택은 설정만 저장한다. 이동하지 않는다.
@@ -9,7 +9,7 @@
 // 엔진: 배포된 엔진 목록(model/engines.json)을 카드로 보여 주고, 엔진마다 선택·받기·삭제를 한다.
 import {
   settings, state, onState, connectStore, getRegistry, pickEngineId, installedEngines, isInstalled, wasRemoved,
-  useEngine, installEngine, deleteEngine, clearLogCache, resetSettings, clearEverything, pruneOrphanEngines,
+  useEngine, installEngine, deleteEngine, clearLogCache, resetSettings, clearEverything, pruneOrphanEngines, loadTenhouList,
 } from './provider.js';
 
 const ROOT = new URL('../', import.meta.url);        // 사이트 루트
@@ -41,7 +41,7 @@ async function main() {
   const activeInfo = () => reg && reg.engines.find(e => e.id === pickEngineId(reg));
   // 엔진 목록을 못 받았으면(오프라인) 설치 기록이 하나라도 있는 한 준비된 것으로 본다
   const engineOk = () => (reg ? (activeInfo() && isInstalled(activeInfo())) : Object.keys(installedEngines()).length > 0);
-  const storeOk = () => !!(cfg().storeBase || cfg().filesOnly);
+  const storeOk = () => !!(cfg().storeBase || cfg().filesOnly || cfg().tenhou);
   const ready = () => !!engineOk() && storeOk();
   const wantMenu = q.has('menu') || !!linkedStore;     // ?from= 은 "돌려보내진 것"이라 메뉴 요청이 아님
 
@@ -122,7 +122,12 @@ async function main() {
     }));
   }
 
-  // ---- ② 데이터 저장소 ----
+  // ---- ② 대국 데이터: 천봉 직접 받기 (기본) + 다른 출처(저장소/파일) ----
+  const tenhouBox = $('tenhou-on');
+  tenhouBox.checked = !!cfg().tenhou;
+  tenhouBox.onchange = () => { settings.patch({ tenhou: tenhouBox.checked }); render(); };
+  loadTenhouList().then(l => { $('tenhou-count').textContent = `— 명인전 ${l.length}판`; }).catch(() => { $('tenhou-msg').textContent = '패보 ID 목록을 불러오지 못했습니다.'; });
+  if (cfg().storeBase || cfg().filesOnly) $('more-src').open = true;
   $('store-url').value = linkedStore || cfg().storeBase || '';
   if (linkedStore) $('store-msg').textContent = '링크에서 받은 주소입니다. 아는 주소인지 확인하고, 맞으면 "연결 테스트 후 저장"을 누르세요.';
   $('store-go').onclick = async () => {

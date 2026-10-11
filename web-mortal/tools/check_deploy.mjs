@@ -11,7 +11,7 @@ const expect = [
   ['v4/tiles/libre/m1.svg', /image\/svg\+xml/], ['v4/tiles/libre/LICENSE-CC0.txt', null],
   ['vendor/core/mortal_wasm_core.js', /javascript/], ['vendor/core/mortal_wasm_core_bg.wasm', /application\/wasm/],
   ['vendor/ort/ort.wasm.min.mjs', /javascript/], ['vendor/ort/ort-wasm-simd-threaded.mjs', /javascript/], ['vendor/ort/ort-wasm-simd-threaded.wasm', /application\/wasm/],
-  ['model/engines.json', /json/], ['NOTICE.md', null], ['LICENSE', null], ['SOURCE.md', null],
+  ['model/engines.json', /json/], ['data/meijin.json', /json/], ['NOTICE.md', null], ['LICENSE', null], ['SOURCE.md', null],
 ];
 let bad = 0;
 const row = (...c) => console.log(c.join('  '));

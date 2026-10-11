@@ -66,3 +66,8 @@ AGPL-3.0-or-later. 모델 가중치 Apache-2.0(수정본), 패 이미지 CC0, on
 - `node v5/tools/build.mjs` 가 `dist/model/<id>/mortal.onnx` 와 `dist/model/engines.json`(버전=sha256 앞 12자)을 만들고 NOTICE 에 엔진별 출처·변경 사실을 적는다. `default` 는 처음 선택되는 엔진.
 - 사용자는 메인 메뉴에서 엔진별로 받기·업데이트·삭제, 선택을 한다. 직접 지운 엔진은 자동으로 다시 받지 않는다. 오답노트는 엔진과 무관하게 남는다.
 - 파인튜닝한 엔진을 추가하려면: 새 .onnx 를 만들고 항목을 추가한 뒤 빌드 → `stage_pages.mjs` → `check_deploy.mjs` 로 크기·버전을 확인.
+
+## 대국 데이터 출처
+1. **천봉 직접 받기 (기본)**: `data/*.json` 의 패보 ID 목록(현재 천봉명인전 `meijin.json`)으로, 사용자 브라우저가 `https://tenhou.net/0/log/?<ID>` 에서 한 판씩 받아 IndexedDB 에 캐시한다. 앱에는 패보 본문이 없다. 요청은 순차·간격 1.5초·재요청 없음. ID 목록 갱신: `node web-mortal/tools/collect_meijin.mjs` (대회 페이지 요청은 3초 간격, HTML 은 `web-mortal/ids-cache/` 에 캐시).
+2. **데이터 저장소**: 사용자가 직접 만든 manifest+샤드 (세미 오프라인용). 천봉 패보는 재배포 금지이므로 본인 전용으로만.
+3. **로그 파일 가져오기**.

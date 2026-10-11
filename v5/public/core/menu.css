@@ -49,3 +49,8 @@ details#manage summary { cursor: pointer; font-weight: 700; }
 .manage-help { margin: 8px 0 0; padding-left: 18px; }
 
 button.armed { background: #8a3b3b; color: #fff; border-color: #c25; }
+
+label.opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid #2c3a2f; border-radius: 10px; cursor: pointer; }
+label.opt input { margin-top: 4px; width: 18px; height: 18px; flex: none; }
+details#more-src { margin-top: 12px; }
+details#more-src summary { cursor: pointer; color: #9fb7a4; }

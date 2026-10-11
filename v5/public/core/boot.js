@@ -23,7 +23,7 @@ const want = cfg.ui || page;          // 화면을 고른 적이 없으면 선�
 const installed = cfg.engines || {};   // {엔진id: 설치된 버전}
 // 준비됨 = (선택된 엔진, 없으면 아무 엔진이든) 설치 기록이 있고, 저장소 주소가 있거나 파일 모드
 const readyEngine = cfg.engineId && installed[cfg.engineId] ? cfg.engineId : Object.keys(installed)[0];
-const setUp = !!(readyEngine && (cfg.storeBase || cfg.filesOnly));
+const setUp = !!(readyEngine && (cfg.storeBase || cfg.filesOnly || cfg.tenhou));
 
 if (!setUp) {
   toMenu();

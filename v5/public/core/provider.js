@@ -1,5 +1,6 @@
 // V5 데이터 제공자: 서버의 /api/game, /api/notebook 을 정적 환경에서 대신한다. (V1/V4 화면 공통)
-//  - 로그 출처: (1) 사용자가 설정한 "데이터 저장소" URL (manifest.json + 샤드 .json.gz)  (2) 사용자가 가져온 로컬 파일
+//  - 로그 출처: (1) 천봉 직접 받기: 배포된 패보 ID 목록(data/*.json)의 대국을 사용자 브라우저가 tenhou.net 에서 직접 받는다 (기본)
+//               (2) 사용자가 설정한 "데이터 저장소" URL (manifest.json + 샤드 .json.gz, 세미 오프라인용)  (3) 사용자가 가져온 로컬 파일
 //  - 분석: 브라우저 안에서 Mortal(wasm 인코더 + onnxruntime-web)로 계산. 샤드에 분석(ai)이 있으면 그대로 사용.
 //  - UI 코드(app.js 등)는 수정하지 않는다. fetch('/api/…') 요청만 가로채 같은 모양의 응답을 돌려준다.
 //  - 문제 지점을 뽑는 모듈(mjlog/mjai/points)은 *현재 페이지*의 js/ 폴더에서 가져온다 → V1/V4 각자의 것을 그대로 사용.
@@ -38,7 +39,7 @@ export function normalizeBase(raw) {
 
 // ---------------- 상태 알림 ----------------
 const listeners = new Set();
-export const state = { engine: 'idle', engineId: null, engineMsg: '', engineProgress: null, model: null, store: null, local: 0, sync: null };
+export const state = { tenhouGames: 0, tenhouCached: 0, engine: 'idle', engineId: null, engineMsg: '', engineProgress: null, model: null, store: null, local: 0, sync: null };
 const emit = () => listeners.forEach(f => { try { f(state); } catch { /* 무시 */ } });
 export const onState = f => { listeners.add(f); f(state); };
 
@@ -184,10 +185,10 @@ export async function deleteAllEngines() {
   enginePromises.clear(); state.engine = 'idle'; state.model = null; state.engineMsg = ''; emit();
   return n;
 }
-// 내려받은 로그 샤드 캐시만 삭제
+// 내려받은 로그 캐시(저장소 샤드 + 천봉에서 받은 패보)만 삭제
 export async function clearLogCache() {
-  const n = await DB.delPrefix(['shard:']).catch(() => 0);
-  cachedFiles.clear(); shardCache.clear(); state.sync = null; emit();
+  const n = await DB.delPrefix(['shard:', 'xml:']).catch(() => 0);
+  cachedFiles.clear(); shardCache.clear(); state.sync = null; state.tenhouCached = 0; emit();
   return n;
 }
 // 설정(저장소 주소·화면·엔진 선택·설치 기록 등)만 초기화: 캐시와 오답노트는 그대로
@@ -298,14 +299,84 @@ export async function importFiles(files) {
 const seen = new Set();
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
+// ---------------- 천봉 직접 받기 ----------------
+// 앱에는 패보 본문이 없고 ID 목록(data/meijin.json: 천봉명인전)만 들어 있다. 대국은 사용자의 브라우저가 tenhou.net 에서 직접 받아
+// 이 브라우저의 IndexedDB 에만 캐시한다 (재요청 없음). 요청은 순차 1개, 최소 간격을 두고 보낸다 (천봉의 권장 사항).
+const DATA_DIR = new URL('../data/', import.meta.url).href;
+const ID_LISTS = ['meijin'];
+const TENHOU_ID_RE = /^\d{10}gm-[0-9a-f]{4}-[0-9a-f]{4,5}-[0-9a-f]{8}$/;
+const TENHOU_GAP_MS = 1500;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+export const tenhouEnabled = () => !!settings.get().tenhou;
+
+let tenhouList = null;     // [{id, season, players:[{name,score,pro}]}]
+export async function loadTenhouList() {
+  if (tenhouList) return tenhouList;
+  const all = [];
+  for (const name of ID_LISTS) {
+    const j = await (await fetch(`${DATA_DIR}${name}.json`)).json();
+    if (j.format !== 1 || !Array.isArray(j.list)) throw new Error(`ID 목록 형식 오류: ${name}`);
+    for (const g of j.list) all.push({ ...g, list: name });
+  }
+  tenhouList = all;
+  try { state.tenhouCached = (await DB.keys()).filter(k => typeof k === 'string' && k.startsWith('xml:')).length; } catch { state.tenhouCached = 0; }
+  state.tenhouGames = all.length; emit();
+  return all;
+}
+
+let netChain = Promise.resolve(), lastNet = 0;
+function throttled(fn) {
+  const run = netChain.then(async () => {
+    const wait = lastNet + TENHOU_GAP_MS - Date.now();
+    if (wait > 0) await sleep(wait);
+    try { return await fn(); } finally { lastNet = Date.now(); }
+  });
+  netChain = run.catch(() => {});
+  return run;
+}
+const inflight = new Map();
+export function fetchTenhouXml(id) {
+  if (!TENHOU_ID_RE.test(id)) return Promise.reject(new Error('올바르지 않은 패보 ID: ' + id));
+  if (inflight.has(id)) return inflight.get(id);
+  const p = (async () => {
+    try { const c = await DB.get('xml:' + id); if (typeof c === 'string' && c.includes('<mjloggm')) return c; } catch { /* 네트워크로 */ }
+    const xml = await throttled(async () => {
+      const res = await fetch(`https://tenhou.net/0/log/?${id}`);
+      if (!res.ok) throw new Error(`천봉에서 패보를 받지 못했습니다 (HTTP ${res.status})`);
+      return res.text();
+    });
+    if (!xml.includes('<mjloggm')) throw new Error('천봉이 패보가 아닌 응답을 보냈습니다 (대국이 없거나 요청이 제한되었을 수 있음)');
+    try { await DB.set('xml:' + id, xml); state.tenhouCached = (state.tenhouCached || 0) + 1; emit(); } catch { /* 저장 실패해도 계속 */ }
+    return xml;
+  })().finally(() => inflight.delete(id));
+  inflight.set(id, p);
+  return p;
+}
+let nextTenhou = null;     // 미리 받아 두는 다음 대국 id
+const pickTenhouId = () => {
+  for (let i = 0; i < 20; i++) { const g = pick(tenhouList); if (!seen.has(g.id)) return g.id; }
+  return pick(tenhouList).id;
+};
+
+
 async function randomGame() {
+  const T = tenhouEnabled() ? (await loadTenhouList()).length : 0;
   const L = local.size, S = manifest ? manifest.games : 0;
-  if (L + S === 0) return null;
+  if (L + S + T === 0) return null;
   const bad = new Set();          // 이번 호출에서 받기 실패한 샤드
   let lastErr = null;
   for (let tries = 0; tries < 8; tries++) {
     let rec;
-    if (Math.random() * (L + S) < L) rec = pick([...local.values()]);
+    const r0 = Math.random() * (L + S + T);
+    if (r0 < T) {
+      const id = (nextTenhou && !seen.has(nextTenhou)) ? nextTenhou : pickTenhouId();
+      nextTenhou = null;
+      try { rec = { id, xml: await fetchTenhouXml(id) }; } catch (e) { lastErr = e; continue; }
+      seen.add(id);
+      nextTenhou = pickTenhouId(); fetchTenhouXml(nextTenhou).catch(() => { nextTenhou = null; });   // 다음 대국을 미리 받아 둔다
+      return rec;
+    }
+    if (r0 < T + L) rec = pick([...local.values()]);
     else {
       // 캐시된 샤드가 있으면 그 안에서만 고른다(즉시 로딩). 하나도 없으면 전체에서 고르고 그 샤드만 받는다.
       const all = manifest.shards.filter(s => !bad.has(s.file));
@@ -321,9 +392,12 @@ async function randomGame() {
 }
 async function findGame(id) {
   if (local.has(id)) return local.get(id);
-  if (!manifest) return null;
-  const sh = manifest.shards.find(s => s.ids && s.ids.includes(id));
-  return sh ? (await loadShard(sh)).find(g => g.id === id) : null;
+  if (manifest) {
+    const sh = manifest.shards.find(s => s.ids && s.ids.includes(id));
+    if (sh) return (await loadShard(sh)).find(g => g.id === id) || null;
+  }
+  if (tenhouEnabled() && TENHOU_ID_RE.test(id)) return { id, xml: await fetchTenhouXml(id) };
+  return null;
 }
 
 async function analyze(xml) {
@@ -347,7 +421,7 @@ async function analyze(xml) {
 
 export async function getGame(id) {
   const rec = id ? await findGame(id) : await randomGame();
-  if (!rec) throw new Error(id ? `저장소/가져온 파일에 없는 로그입니다: ${id}` : '불러올 로그가 없습니다. ⚙ 설정에서 데이터 저장소 주소를 입력하거나 로그 파일(.xml)을 가져오세요.');
+  if (!rec) throw new Error(id ? `저장소/가져온 파일에 없는 로그입니다: ${id}` : '불러올 로그가 없습니다. ⚙ 설정에서 천봉 직접 받기를 켜거나, 데이터 저장소 주소를 입력하거나, 로그 파일(.xml)을 가져오세요.');
   const activeId = pickEngineId(await getRegistry());
   const ai = (rec.ai && rec.ai.engine === activeId) ? rec.ai : await analyze(rec.xml);   // 다른 엔진이 만든 미리 계산 분석은 쓰지 않는다
   return { id: rec.id, xml: rec.xml, ai };
@@ -378,5 +452,5 @@ export function install({ gate = Promise.resolve() } = {}) {
   // 저장된 설정으로 자동 연결 (실패해도 앱은 계속 동작)
   const saved = settings.get().storeBase;
   if (saved) connectStore(saved).catch(e => { state.storeError = e.message; emit(); });
-  window.mjpProvider = { settings, state, connectStore, disconnectStore, importFiles, getGame, ensureEngine, EngineNotInstalled, installEngine, deleteEngine, deleteAllEngines, clearLogCache, resetSettings, clearEverything, syncStore, getRegistry, useEngine, pruneOrphanEngines };
+  window.mjpProvider = { loadTenhouList, fetchTenhouXml, tenhouEnabled, settings, state, connectStore, disconnectStore, importFiles, getGame, ensureEngine, EngineNotInstalled, installEngine, deleteEngine, deleteAllEngines, clearLogCache, resetSettings, clearEverything, syncStore, getRegistry, useEngine, pruneOrphanEngines };
 }
