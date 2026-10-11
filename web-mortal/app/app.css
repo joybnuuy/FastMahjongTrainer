@@ -1,0 +1,16 @@
+/* 정적 배포판 전용 추가 스타일 (style.css 는 원본 그대로) */
+.muted { color: #6b7280; font-size: 12px; margin: 4px 0; }
+.legal { margin-top: 10px; }
+button.icon { float: right; font-size: 18px; line-height: 1; padding: 4px 10px; }
+#engine { min-height: 1.2em; }
+dialog#settings { width: min(560px, calc(100vw - 32px)); border: 1px solid #cbd5e1; border-radius: 10px; padding: 16px; }
+dialog#settings::backdrop { background: rgba(0, 0, 0, .35); }
+dialog#settings h2 { margin: 0 0 8px; font-size: 18px; }
+dialog#settings h3 { margin: 14px 0 4px; font-size: 14px; }
+dialog#settings input[type=url] { width: 100%; box-sizing: border-box; padding: 6px 8px; }
+dialog#settings .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+dialog#settings .row.end { justify-content: flex-end; }
+@media (prefers-color-scheme: dark) {
+  .muted { color: #9ca3af; }
+  dialog#settings { background: #1f2937; color: #e5e7eb; border-color: #374151; }
+}
