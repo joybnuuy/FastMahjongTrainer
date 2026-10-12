@@ -84,7 +84,15 @@ regSrc.engines.forEach((e, i) => {
 });
 if (!engines.length) throw new Error('배포할 엔진이 없음');
 if (!engines.some(e => e.id === regSrc.default)) throw new Error('default 엔진이 목록에 없음: ' + regSrc.default);
-fs.writeFileSync(path.join(DIST, 'model', 'engines.json'), JSON.stringify({ format: 1, default: regSrc.default, engines }, null, 2) + '\n');
+// 실행 프로그램(모든 엔진이 함께 쓰는 큰 wasm 두 개): 브라우저가 엔진보다 먼저 진행률을 보여 주며 받아 이 기기에 저장한다.
+const rtFiles = [
+  { id: 'ort', path: 'vendor/ort/ort-wasm-simd-threaded.wasm' },
+  { id: 'core', path: 'vendor/core/mortal_wasm_core_bg.wasm' },
+].map(f => ({ ...f, bytes: fs.statSync(path.join(DIST, f.path)).size }));
+const rtHash = crypto.createHash('sha256');
+for (const f of rtFiles) rtHash.update(fs.readFileSync(path.join(DIST, f.path)));
+const runtime = { version: rtHash.digest('hex').slice(0, 12), files: rtFiles };
+fs.writeFileSync(path.join(DIST, 'model', 'engines.json'), JSON.stringify({ format: 1, default: regSrc.default, runtime, engines }, null, 2) + '\n');
 
 // 5) 라이선스 문서
 // 엔진마다 원본·라이선스·변경 사실(Apache-2.0 §4(b))·파일 해시를 적는다. 엔진이 늘어도 v5/engines.json 만 고치면 된다.

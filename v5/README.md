@@ -76,3 +76,6 @@ AGPL-3.0-or-later. 모델 가중치 Apache-2.0(수정본), 패 이미지 CC0, on
 - 엔진 항목에 `styles` 경로(`styles.json` + `styles.bin`)를 적으면 빌드가 `model/<id>/` 로 복사하고 레지스트리에 넣는다 (엔진 버전은 모델+스타일 해시). 엔진 ONNX 는 몸체 특징 `phi` 를 추가 출력으로 가져야 한다 (`web-mortal/tools/add_phi_output.py`).
 - 브라우저는 스타일 헤드가 있으면 같은 판단 지점에서 스타일별 Q 를 함께 계산해 분석 결과에 `styles` 로 싣고, 해설에 "스타일 참고"(스타일별 추천 패, 내 선택의 순위/격차)를 보여 준다. **채점에는 쓰지 않는다.** 스타일 파일을 못 받으면 스타일 없이 동작한다.
 - 스타일 헤드는 천봉명인전·천봉위 대국으로 학습한 작은 보정 행렬이며 대국 데이터와 선수 이름은 들어 있지 않다 (자세한 방법/검증: `web-mortal/RESEARCH.md` Step 20~21).
+
+## 실행 프로그램(런타임) 선(先)다운로드
+- `model/engines.json` 의 `runtime` 에 큰 wasm 두 개(onnxruntime, 인코더)의 경로·크기·버전(해시)이 들어 있다. 어느 엔진이든 받기/시작할 때 이것을 **먼저** 진행률(메뉴의 진행 표시줄)과 함께 받아 IndexedDB(`runtime:<버전>:ort|core`)에 두고, 엔진 워커에 바이트로 넘긴다(`ort.env.wasm.wasmBinary`, `core.default({module_or_path})`). 모든 엔진이 함께 쓰며, 파일이 바뀌면(버전 변경) 다시 받고 이전 버전은 지운다. 엔진 전체 삭제 시에는 함께 지운다.

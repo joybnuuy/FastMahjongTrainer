@@ -32,6 +32,13 @@ try {
   const fmtOk = reg.format === 1 && Array.isArray(reg.engines) && reg.engines.length > 0 && reg.engines.some(e => e.id === reg.default);
   if (!fmtOk) bad++;
   row(fmtOk ? 'OK ' : 'ERR', '   ', `엔진 ${reg.engines?.length ?? 0}개`.padStart(10), '     ', 'model/engines.json'.padEnd(42), fmtOk ? `기본 엔진: ${reg.default}` : '형식 이상(format/engines/default)');
+  if (reg.runtime) {   // 실행 프로그램(큰 wasm) 목록: 파일 크기 일치 확인
+    for (const f of reg.runtime.files) {
+      const r = await fetch(`${base}${f.path}?v=${reg.runtime.version}`); const n = (await r.arrayBuffer()).byteLength;
+      const ok = r.ok && n === f.bytes; if (!ok) bad++;
+      row(ok ? 'OK ' : 'ERR', String(r.status), (n / 1e6).toFixed(2).padStart(7) + 'MB', '     ', f.path.padEnd(42), ok ? `실행 프로그램 크기 일치(${f.bytes}B) v${reg.runtime.version}` : `이상: 크기 ${n} vs ${f.bytes}`);
+    }
+  } else { bad++; row('ERR', '   ', '', '', 'model/engines.json', 'runtime 항목이 없음'); }
   for (const info of reg.engines || []) {
     const t = performance.now();
     const r = await fetch(`${base}model/${info.file}?v=${info.version}`);

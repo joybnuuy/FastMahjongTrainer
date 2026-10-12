@@ -78,7 +78,9 @@ async function main() {
     busy.add(id); render();
     try { await installEngine(id, { start }); }
     catch (e) { $('engine-msg').textContent = `엔진 준비 실패: ${e.message} (이 브라우저가 WebAssembly를 지원하는지 확인하세요)`; }
-    busy.delete(id); render();
+    busy.delete(id);
+    if (!$('engine-msg').textContent.startsWith('엔진 준비 실패')) $('engine-msg').textContent = '';
+    render();
     // 화면에서 돌려보내진 기존 사용자의 '자동' 재준비가 끝난 경우에만 원래 화면으로 복귀 (사용자가 직접 누른 받기는 메뉴에 머문다)
     if (auto && q.has('from') && !q.has('menu') && cfg().setupDone && ready()) openUi(chosenUi());
   }
@@ -178,11 +180,15 @@ async function main() {
     $('start-hint').textContent = ready() ? '시작하면 이후에는 이 주소(/)가 바로 선택한 화면으로 이동합니다.' : `아직 끝나지 않은 단계: ${missing.join(' · ')}`;
   }
 
+  let msgIsProgress = false;
   onState(s => {
     const prog = $('engine-prog');
     prog.hidden = !(s.engine === 'loading' && s.engineProgress);
     if (s.engineProgress) prog.value = s.engineProgress.got / s.engineProgress.total;
-    if (s.engine === 'loading') $('engine-msg').textContent = s.engineMsg;
+    // 진행 문구는 받는 중/시작 중에만 보이고, 끝나면(준비 완료·대기) 지운다. 오류는 그대로 보여 준다.
+    if (s.engine === 'loading') { $('engine-msg').textContent = s.engineMsg; msgIsProgress = true; }
+    else if (s.engine === 'error') { $('engine-msg').textContent = s.engineMsg; msgIsProgress = false; }
+    else if (msgIsProgress) { $('engine-msg').textContent = ''; msgIsProgress = false; }
     if (s.sync && !s.sync.finished && s.store) $('store-msg').textContent = `연결됨: 대국 ${s.store.games}판 · 로그 동기화 ${s.sync.done}/${s.sync.total}`;
     else if (s.sync && s.sync.finished && s.store) $('store-msg').textContent = `연결됨: 대국 ${s.store.games}판 · 로그 ${s.store.games}판 캐시 완료`;
     render();

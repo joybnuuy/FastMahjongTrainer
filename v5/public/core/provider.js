@@ -13,6 +13,7 @@ const ORT_BASE = new URL('../vendor/ort/', import.meta.url).href;
 const CORE_JS = new URL('../vendor/core/mortal_wasm_core.js', import.meta.url).href;
 const CORE_WASM = new URL('../vendor/core/mortal_wasm_core_bg.wasm', import.meta.url).href;
 const MODEL_DIR = new URL('../model/', import.meta.url).href;
+const SITE_ROOT = new URL('../', import.meta.url).href;
 // 같은 URL 을 서로 다른 출처(예: localhost 와 github.io)가 요청하면, Vary: Origin 이 없는 서버(S4)의 HTTP 캐시가 이전 출처의 CORS 헤더를 재사용해 차단된다.
 // 쿼리에 출처 해시를 넣어 캐시 키를 출처별로 분리한다 (S4 는 알 수 없는 쿼리를 무시한다).
 const ORIGIN_KEY = (() => { let h = 0; for (const c of location.origin) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h.toString(36); })();
@@ -95,6 +96,37 @@ async function getEngineBytes(info) {
   return { bytes, from: 'network' };
 }
 
+// 실행 프로그램(큰 wasm 두 개: onnxruntime, 인코더): 엔진을 받기 전에 먼저, 진행률을 보여 주며 받아 IndexedDB 에 둔다. 모든 엔진이 함께 쓴다.
+// 레지스트리에 runtime 이 없으면(구버전 배포) null → 워커가 예전처럼 주소에서 직접 읽는다.
+async function getRuntimeBytes(reg) {
+  const rt = reg && reg.runtime;
+  if (!rt) return null;
+  const out = {}, missing = [];
+  for (const f of rt.files) {
+    try { const c = await DB.get(`runtime:${rt.version}:${f.id}`); if (c && c.length === f.bytes) { out[f.id] = c; continue; } } catch { /* 네트워크로 */ }
+    missing.push(f);
+  }
+  if (missing.length) {
+    const total = missing.reduce((s, f) => s + f.bytes, 0);
+    let done = 0;
+    state.engine = 'loading'; emit();
+    const label = g => `실행 프로그램 받는 중 (${(g / 1e6).toFixed(1)} / ${(total / 1e6).toFixed(1)}MB) — 처음 한 번만`;
+    for (const f of missing) {
+      state.engineMsg = label(done); state.engineProgress = { got: done, total }; emit();
+      const res = await fetch(`${SITE_ROOT}${f.path}?v=${rt.version}`);
+      if (!res.ok) throw new Error(`실행 프로그램 다운로드 실패: HTTP ${res.status} (${f.path})`);
+      const base = done;
+      const bytes = await readWithProgress(res, f.bytes, g => { state.engineProgress = { got: base + g, total }; state.engineMsg = label(base + g); emit(); });
+      if (bytes.length !== f.bytes) throw new Error(`실행 프로그램 파일 크기가 맞지 않습니다 (${f.path})`);
+      try { await DB.set(`runtime:${rt.version}:${f.id}`, bytes); } catch { /* 저장 실패해도 계속 */ }
+      out[f.id] = bytes; done += f.bytes;
+    }
+    state.engineProgress = null;
+    try { for (const k of await DB.keys()) if (typeof k === 'string' && k.startsWith('runtime:') && !k.startsWith(`runtime:${rt.version}:`)) await DB.del(k); } catch { /* 무시 */ }
+  }
+  return out;
+}
+
 // 스타일 헤드(선택 · 참고 표시용): 엔진 항목에 styles 가 있을 때만. IndexedDB 캐시 → 네트워크. 실패해도 엔진은 스타일 없이 동작한다.
 async function getStyleData(info) {
   if (!info.styles) return null;
@@ -150,11 +182,12 @@ export async function ensureEngine(wanted, { allowDownload = false } = {}) {
       if (!info) throw new Error('알 수 없는 엔진: ' + id);
       const t0 = performance.now();
       state.engineId = id; state.engine = 'loading'; state.engineMsg = '엔진 준비 중…'; emit();
+      const runtime = await getRuntimeBytes(reg);                       // 실행 프로그램 먼저 (진행률 표시)
       const { bytes, from } = await getEngineBytes(info);
       const style = await getStyleData(info);
       state.engineMsg = '엔진 시작 중…'; emit();
       // onnxruntime + wasm 인코더는 전용 워커 안에서 돌린다 (종료하면 메모리가 확실히 돌아온다). 모델 바이트는 복사해서 넘긴다.
-      const web = await RemoteMortal.create({ model: bytes.slice(), ortUrl: ORT_BASE + 'ort.wasm.min.mjs', ortBase: ORT_BASE, coreJs: CORE_JS, coreWasm: CORE_WASM, style: style && { meta: style.meta, bin: style.bin.slice() } });
+      const web = await RemoteMortal.create({ model: bytes.slice(), ortUrl: ORT_BASE + 'ort.wasm.min.mjs', ortBase: ORT_BASE, coreJs: CORE_JS, coreWasm: CORE_WASM, style: style && { meta: style.meta, bin: style.bin.slice() }, runtime: runtime && { ortWasm: runtime.ort.slice(), coreWasm: runtime.core.slice() } });
       state.engine = 'ready'; state.engineId = id; state.styleMeta = style ? style.meta.styles.map(s => ({ id: s.id, name: s.name, desc: s.desc })) : null;
       state.model = { ...info, from, loadMs: Math.round(performance.now() - t0) };
       state.engineMsg = `${info.name} 준비됨 (${from === 'cache' ? '캐시' : '내려받음'}, ${state.model.loadMs}ms)`;
@@ -176,6 +209,7 @@ export async function installEngine(id, { start = false } = {}) {
     disposeEngine(id); state.engine = 'idle'; state.engineMsg = ''; emit();
     return;
   }
+  await getRuntimeBytes(reg);
   await getEngineBytes(info);
   await getStyleData(info);
   state.engine = state.model ? 'ready' : 'idle'; state.engineMsg = ''; emit();
@@ -188,6 +222,7 @@ export async function pruneOrphanEngines(reg) {
   let n = 0;
   try {
     for (const k of await DB.keys()) if (typeof k === 'string' && k.startsWith('model:') && !keep.has(k)) { await DB.del(k); n++; }
+    if (reg.runtime) for (const k of await DB.keys()) if (typeof k === 'string' && k.startsWith('runtime:') && !k.startsWith(`runtime:${reg.runtime.version}:`)) { await DB.del(k); n++; }
   } catch { /* IndexedDB 불가 → 무시 */ }
   // 설치 기록도 목록과 맞춘다: 목록에서 사라진 엔진은 기록에서 제거 (낡은 버전 기록은 메뉴가 '업데이트'로 보여 주도록 남긴다)
   const inst = installedEngines(), kept = Object.fromEntries(Object.entries(inst).filter(([id]) => reg.engines.some(e => e.id === id)));
@@ -210,7 +245,7 @@ export async function deleteEngine(id) {
 }
 // 모든 엔진 삭제
 export async function deleteAllEngines() {
-  const n = await DB.delPrefix(['model:']).catch(() => 0);
+  const n = await DB.delPrefix(['model:', 'runtime:']).catch(() => 0);
   settings.patch({ engines: {}, removedEngines: Object.fromEntries((await getRegistry().catch(() => ({ engines: [] }))).engines.map(e => [e.id, true])) });
   for (const k of [...enginePromises.keys()]) disposeEngine(k);
   state.engine = 'idle'; state.model = null; state.engineMsg = ''; emit();

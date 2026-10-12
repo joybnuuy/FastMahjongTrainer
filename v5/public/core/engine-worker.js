@@ -32,8 +32,9 @@ self.onmessage = async ({ data }) => {
       ort.env.wasm.wasmPaths = data.ortBase;
       ort.env.wasm.numThreads = 1;      // github.io 는 COOP/COEP 헤더를 줄 수 없어 멀티스레드 불가
       ort.env.wasm.proxy = false;       // 이 워커가 이미 메인 스레드와 분리되어 있다
+      if (data.runtime) ort.env.wasm.wasmBinary = data.runtime.ortWasm;   // 미리 받아 둔 wasm 바이트를 쓴다 (주소에서 다시 받지 않음)
       const core = await import(data.coreJs);
-      await core.default({ module_or_path: data.coreWasm });
+      await core.default({ module_or_path: data.runtime ? data.runtime.coreWasm : data.coreWasm });
       const styleHead = data.style ? parseStyleHead(data.style.meta, data.style.bin) : null;
       web = await MortalWeb.create({ ort, core, model: data.model, styleHead });
       reply(true, null);

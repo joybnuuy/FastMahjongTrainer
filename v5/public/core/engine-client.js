@@ -6,10 +6,10 @@ export class RemoteMortal {
     worker.onmessage = ({ data }) => { const p = this.#pending.get(data.id); if (!p) return; this.#pending.delete(data.id); data.ok ? p.res(data.result) : p.rej(new Error(data.error)); };
     worker.onerror = e => { const err = new Error(e.message || '엔진 워커 오류'); for (const p of this.#pending.values()) p.rej(err); this.#pending.clear(); };
   }
-  static async create({ model, ortUrl, ortBase, coreJs, coreWasm, style = null }) {
+  static async create({ model, ortUrl, ortBase, coreJs, coreWasm, style = null, runtime = null }) {
     const worker = new Worker(new URL('./engine-worker.js', import.meta.url), { type: 'module' });
     const web = new RemoteMortal(worker);
-    try { await web.#call('init', { model, ortUrl, ortBase, coreJs, coreWasm, style }, [model.buffer, ...(style ? [style.bin.buffer] : [])]); }
+    try { await web.#call('init', { model, ortUrl, ortBase, coreJs, coreWasm, style, runtime }, [model.buffer, ...(style ? [style.bin.buffer] : []), ...(runtime ? [runtime.ortWasm.buffer, runtime.coreWasm.buffer] : [])]); }
     catch (e) { web.dispose(); throw e; }
     return web;
   }
