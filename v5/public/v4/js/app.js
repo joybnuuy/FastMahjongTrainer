@@ -1,5 +1,7 @@
 import { gradeAi, findOpt } from './aiutil.js';
-import { tileEl } from './tiles.js';
+import { tileEl, preloadTiles } from './tiles.js';
+(globalThis.__MJP ??= { builds: {} }).builds.app = '__MJP_BUILD__';   // 빌드 번호(빌드 때 치환) — 푸터에서 캐시된 이전 버전인지 확인용
+preloadTiles();
 import { renderTable, renderHandBar } from './table.js';
 import { explainEff, explainDef, explainTenpaiPlayer } from './explain.js';
 import { fillEffEv, fillPushFold } from './explain-ev.js';

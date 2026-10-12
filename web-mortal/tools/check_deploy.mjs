@@ -55,5 +55,14 @@ try {
     }
   }
 } catch (e) { bad++; row('ERR', 'model', e.message); }
+// 빌드 번호: build.json 의 번호가 배포된 JS 안에 들어 있는지(= 같은 빌드의 파일인지)
+try {
+  const bj = await (await fetch(base + 'build.json?chk=' + Date.now())).json();
+  const files = ['core/provider.js', 'core/menu.js', 'core/boot.js', 'core/engine-worker.js', 'core/mortal-web.js', 'v4/js/app.js'];
+  const miss = [];
+  for (const f of files) { const t = await (await fetch(base + f + '?chk=' + Date.now())).text(); if (!t.includes(bj.id)) miss.push(f); }
+  if (miss.length || !bj.id) bad++;
+  row(miss.length || !bj.id ? 'ERR' : 'OK ', '   ', '', '', 'build.json'.padEnd(42), miss.length ? `빌드 ${bj.id} 가 없는 파일: ${miss.join(', ')}` : `빌드 ${bj.id} — 확인한 JS ${files.length}개에 모두 기록됨`);
+} catch (e) { bad++; row('ERR', 'build.json', e.message); }
 console.log(bad ? `\n문제 ${bad}건` : '\n모두 정상');
 process.exit(bad ? 1 : 0);

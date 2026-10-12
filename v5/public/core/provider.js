@@ -4,6 +4,7 @@
 //  - 분석: 브라우저 안에서 Mortal(wasm 인코더 + onnxruntime-web)로 계산. 샤드에 분석(ai)이 있으면 그대로 사용.
 //  - UI 코드(app.js 등)는 수정하지 않는다. fetch('/api/…') 요청만 가로채 같은 모양의 응답을 돌려준다.
 //  - 문제 지점을 뽑는 모듈(mjlog/mjai/points)은 *현재 페이지*의 js/ 폴더에서 가져온다 → V1/V4 각자의 것을 그대로 사용.
+(globalThis.__MJP ??= { builds: {} }).builds.provider = '__MJP_BUILD__';   // 빌드 번호(빌드 때 치환)
 import * as DB from './idb.js';
 import { RemoteMortal } from './engine-client.js';
 import { handleNotebook } from './notebook.js';
@@ -96,6 +97,21 @@ async function getEngineBytes(info) {
   return { bytes, from: 'network' };
 }
 
+// wasm 바이너리 끝에 붙여 둔 custom section 'mjp_build' (빌드 때 내용 해시로 기록)를 읽는다: 섹션 헤더만 훑으므로 14MB 도 즉시.
+function wasmBuildId(bytes) {
+  try {
+    let p = 8;
+    const leb = () => { let r = 0, s = 0, b; do { b = bytes[p++]; r |= (b & 0x7f) << s; s += 7; } while (b & 0x80); return r >>> 0; };
+    const td = new TextDecoder();
+    while (p < bytes.length) {
+      const id = bytes[p++], size = leb(), end = p + size;
+      if (id === 0) { const nl = leb(); const name = td.decode(bytes.subarray(p, p + nl)); if (name === 'mjp_build') return td.decode(bytes.subarray(p + nl, end)); }
+      p = end;
+    }
+  } catch { /* 형식이 이상하면 null */ }
+  return null;
+}
+
 // 실행 프로그램(큰 wasm 두 개: onnxruntime, 인코더): 엔진을 받기 전에 먼저, 진행률을 보여 주며 받아 IndexedDB 에 둔다. 모든 엔진이 함께 쓴다.
 // 레지스트리에 runtime 이 없으면(구버전 배포) null → 워커가 예전처럼 주소에서 직접 읽는다.
 async function getRuntimeBytes(reg) {
@@ -124,6 +140,8 @@ async function getRuntimeBytes(reg) {
     state.engineProgress = null;
     try { for (const k of await DB.keys()) if (typeof k === 'string' && k.startsWith('runtime:') && !k.startsWith(`runtime:${rt.version}:`)) await DB.del(k); } catch { /* 무시 */ }
   }
+  state.wasmBuilds = Object.fromEntries(rt.files.map(f => [f.id, { found: wasmBuildId(out[f.id]), expected: f.wasmId || null }]));
+  emit();
   return out;
 }
 
@@ -189,6 +207,7 @@ export async function ensureEngine(wanted, { allowDownload = false } = {}) {
       // onnxruntime + wasm 인코더는 전용 워커 안에서 돌린다 (종료하면 메모리가 확실히 돌아온다). 모델 바이트는 복사해서 넘긴다.
       const web = await RemoteMortal.create({ model: bytes.slice(), ortUrl: ORT_BASE + 'ort.wasm.min.mjs', ortBase: ORT_BASE, coreJs: CORE_JS, coreWasm: CORE_WASM, style: style && { meta: style.meta, bin: style.bin.slice() }, runtime: runtime && { ortWasm: runtime.ort.slice(), coreWasm: runtime.core.slice() } });
       state.engine = 'ready'; state.engineId = id; state.styleMeta = style ? style.meta.styles.map(s => ({ id: s.id, name: s.name, desc: s.desc })) : null;
+      state.runtimeBuild = web.info && web.info.build || null;
       state.model = { ...info, from, loadMs: Math.round(performance.now() - t0) };
       state.engineMsg = `${info.name} 준비됨 (${from === 'cache' ? '캐시' : '내려받음'}, ${state.model.loadMs}ms)`;
       markInstalled(info);      // 이 버전의 엔진이 이 브라우저에서 실제로 동작함을 기록

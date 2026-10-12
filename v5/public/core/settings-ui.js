@@ -1,4 +1,5 @@
 // 설정 창 (V1/V4 화면 공통): ⚙ 버튼과 대화상자를 JS로 만들어 현재 페이지 헤더에 붙인다.
+(globalThis.__MJP ??= { builds: {} }).builds.settings = '__MJP_BUILD__';   // 빌드 번호(빌드 때 치환)
 import {
   settings, state, onState, connectStore, disconnectStore, importFiles, ensureEngine, getRegistry, pickEngineId, installedEngines, isInstalled,
   useEngine, deleteEngine, clearLogCache, loadTenhouList,

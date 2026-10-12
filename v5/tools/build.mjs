@@ -57,6 +57,38 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 `);
 
+// 3.5) 빌드 번호: 입력 전체(화면·코어·vendor·엔진 정의/모델/스타일)의 내용 해시 + 날짜. 같은 내용이면 같은 번호.
+//      JS 의 '__MJP_BUILD__' 를 번호로 치환하고, wasm 두 개에는 (내용 해시 기반) 번호를 custom section 으로 덧붙인다.
+//      → 푸터에서 "캐시된 이전 버전인지" 확인할 수 있다 (core/buildinfo.js).
+const walkFiles = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walkFiles(path.join(d, e.name)) : [path.join(d, e.name)])).sort();
+const inH = crypto.createHash('sha256');
+for (const f of walkFiles(DIST)) inH.update(path.relative(DIST, f)).update(fs.readFileSync(f));
+inH.update(fs.readFileSync(path.join(V5, 'engines.json')));
+for (const e of JSON.parse(fs.readFileSync(path.join(V5, 'engines.json'), 'utf8')).engines) {
+  const sp = path.join(ROOT, e.source); if (fs.existsSync(sp)) inH.update(fs.readFileSync(sp));
+  if (e.styles) for (const n of ['styles.json', 'styles.bin']) { const q = path.join(ROOT, e.styles, n); if (fs.existsSync(q)) inH.update(fs.readFileSync(q)); }
+}
+const pad2 = n => String(n).padStart(2, '0'), nowD = new Date();
+const BUILD_DATE = process.env.BUILD_DATE || `${nowD.getFullYear()}${pad2(nowD.getMonth() + 1)}${pad2(nowD.getDate())}`;
+const BUILD_ID = `${BUILD_DATE}-${inH.digest('hex').slice(0, 7)}`;
+let injected = 0;
+for (const f of walkFiles(DIST)) {
+  if (!/\.(js|mjs)$/.test(f) || f.includes(`${path.sep}vendor${path.sep}`)) continue;
+  const t = fs.readFileSync(f, 'utf8');
+  if (t.includes('__MJP_BUILD__')) { fs.writeFileSync(f, t.split('__MJP_BUILD__').join(BUILD_ID)); injected++; }
+}
+const leb = n => { const o = []; do { let b = n & 0x7f; n >>>= 7; if (n) b |= 0x80; o.push(b); } while (n); return Buffer.from(o); };
+const wasmIds = {};
+for (const f of ['vendor/ort/ort-wasm-simd-threaded.wasm', 'vendor/core/mortal_wasm_core_bg.wasm']) {
+  const fp = path.join(DIST, f), orig = fs.readFileSync(fp);
+  const id = 'w' + crypto.createHash('sha256').update(orig).digest('hex').slice(0, 7);   // 원본 wasm 내용 기준(빌드 날짜와 무관 → 내용이 같으면 번호도 같다)
+  const name = Buffer.from('mjp_build'), body = Buffer.concat([leb(name.length), name, Buffer.from(id)]);
+  fs.writeFileSync(fp, Buffer.concat([orig, Buffer.from([0]), leb(body.length), body]));      // custom section(id 0) 덧붙이기: 유효한 wasm
+  wasmIds[f] = id;
+}
+fs.writeFileSync(path.join(DIST, 'build.json'), JSON.stringify({ id: BUILD_ID, date: BUILD_DATE, wasm: wasmIds }) + '\n');
+console.log(`빌드 번호 ${BUILD_ID} (JS ${injected}개에 기록, wasm ${Object.keys(wasmIds).length}개에 section 추가)`);
+
 // 4) 엔진(모델) 레지스트리: v5/engines.json 의 각 엔진을 model/<id>/mortal.onnx 로 복사하고 model/engines.json 을 만든다
 //    버전 = 파일 sha256 앞 12자 (캐시 키/쿼리/설치 기록에 사용). 인자로 .onnx 경로를 주면 첫 엔진의 source 를 대신한다(개발용).
 const regSrc = JSON.parse(fs.readFileSync(path.join(V5, 'engines.json'), 'utf8'));
@@ -88,7 +120,7 @@ if (!engines.some(e => e.id === regSrc.default)) throw new Error('default 엔진
 const rtFiles = [
   { id: 'ort', path: 'vendor/ort/ort-wasm-simd-threaded.wasm' },
   { id: 'core', path: 'vendor/core/mortal_wasm_core_bg.wasm' },
-].map(f => ({ ...f, bytes: fs.statSync(path.join(DIST, f.path)).size }));
+].map(f => ({ ...f, bytes: fs.statSync(path.join(DIST, f.path)).size, wasmId: wasmIds[f.path] }));
 const rtHash = crypto.createHash('sha256');
 for (const f of rtFiles) rtHash.update(fs.readFileSync(path.join(DIST, f.path)));
 const runtime = { version: rtHash.digest('hex').slice(0, 12), files: rtFiles };

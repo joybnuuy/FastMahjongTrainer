@@ -79,3 +79,9 @@ AGPL-3.0-or-later. 모델 가중치 Apache-2.0(수정본), 패 이미지 CC0, on
 
 ## 실행 프로그램(런타임) 선(先)다운로드
 - `model/engines.json` 의 `runtime` 에 큰 wasm 두 개(onnxruntime, 인코더)의 경로·크기·버전(해시)이 들어 있다. 어느 엔진이든 받기/시작할 때 이것을 **먼저** 진행률(메뉴의 진행 표시줄)과 함께 받아 IndexedDB(`runtime:<버전>:ort|core`)에 두고, 엔진 워커에 바이트로 넘긴다(`ort.env.wasm.wasmBinary`, `core.default({module_or_path})`). 모든 엔진이 함께 쓰며, 파일이 바뀌면(버전 변경) 다시 받고 이전 버전은 지운다. 엔진 전체 삭제 시에는 함께 지운다.
+
+## 빌드 번호 (캐시된 이전 버전 확인)
+- `node v5/tools/build.mjs` 가 입력 전체(화면·코어·vendor·엔진/스타일)의 내용 해시로 빌드 번호(`YYYYMMDD-해시7`)를 만들어 JS 의 `__MJP_BUILD__` 를 치환하고(`core/*.js`, `v4/js/app.js`, 엔진 워커 등), `build.json` 을 쓴다. wasm 두 개에는 원본 내용 해시 기반 번호(`w해시7`)를 custom section `mjp_build` 로 덧붙인다(유효한 wasm, 내용이 같으면 번호도 같아 실행 프로그램 다시 받기를 유발하지 않음).
+- 푸터 맨 아래 줄(`core/buildinfo.js`)에 "빌드 …(최신) · 워커 일치 · wasm ort … / core …" 를 표시. JS 파일끼리 번호가 다르면(캐시 혼재) 경고, `build.json`(캐시 없이 요청)의 최신 번호와 다르면 "이전 빌드가 보이고 있습니다" 경고. 개발 중(치환 안 됨)에는 "개발 빌드".
+- `check_deploy.mjs` 가 `build.json` 번호가 배포된 JS 들에 들어 있는지 확인한다.
+- 패 이미지(SVG)는 시작할 때 미리 받아 두고, 아직 도착하지 않은 패는 빈 패(白)와 구분되도록 회색 줄무늬 로딩 표시(`.tile.loading`), 실패하면 `.tile.broken`(물음표)으로 보인다.

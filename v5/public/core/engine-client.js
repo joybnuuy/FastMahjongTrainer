@@ -1,3 +1,4 @@
+(globalThis.__MJP ??= { builds: {} }).builds.client = '__MJP_BUILD__';   // 빌드 번호(빌드 때 치환)
 // 메인 스레드 쪽 엔진 핸들: engine-worker.js 에 요청을 보내고 결과를 받는다. dispose() 는 워커를 종료해 메모리를 즉시 돌려준다.
 export class RemoteMortal {
   #worker; #pending = new Map(); #seq = 0; #dead = false;
@@ -9,7 +10,7 @@ export class RemoteMortal {
   static async create({ model, ortUrl, ortBase, coreJs, coreWasm, style = null, runtime = null }) {
     const worker = new Worker(new URL('./engine-worker.js', import.meta.url), { type: 'module' });
     const web = new RemoteMortal(worker);
-    try { await web.#call('init', { model, ortUrl, ortBase, coreJs, coreWasm, style, runtime }, [model.buffer, ...(style ? [style.bin.buffer] : []), ...(runtime ? [runtime.ortWasm.buffer, runtime.coreWasm.buffer] : [])]); }
+    try { web.info = await web.#call('init', { model, ortUrl, ortBase, coreJs, coreWasm, style, runtime }, [model.buffer, ...(style ? [style.bin.buffer] : []), ...(runtime ? [runtime.ortWasm.buffer, runtime.coreWasm.buffer] : [])]); }
     catch (e) { web.dispose(); throw e; }
     return web;
   }

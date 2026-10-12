@@ -1,7 +1,8 @@
 // 엔진 전용 워커: onnxruntime-web + wasm 인코더를 이 워커 안에서만 돌린다.
 // wasm 메모리는 한 번 커지면 줄지 않으므로, 메모리를 확실히 돌려주려면 워커를 종료(terminate)해야 한다.
 // (ort 의 proxy 워커는 외부에서 종료할 수 없어서 직접 워커를 둔다.) 화면을 떠나거나 엔진을 바꿀 때 메인이 이 워커를 종료한다.
-import { MortalWeb } from './mortal-web.js';
+import { MortalWeb, MORTAL_WEB_BUILD } from './mortal-web.js';
+const WORKER_BUILD = '__MJP_BUILD__';   // 빌드 번호(빌드 때 치환)
 import { parseStyleHead } from './style-head.js';
 
 // WebKit(iOS/macOS Safari 및 iOS 의 모든 브라우저) 버그 대응: WebAssembly.Memory 를 만든 직후 .buffer 를 한 번 읽어 두면
@@ -37,7 +38,7 @@ self.onmessage = async ({ data }) => {
       await core.default({ module_or_path: data.runtime ? data.runtime.coreWasm : data.coreWasm });
       const styleHead = data.style ? parseStyleHead(data.style.meta, data.style.bin) : null;
       web = await MortalWeb.create({ ort, core, model: data.model, styleHead });
-      reply(true, null);
+      reply(true, { build: { worker: WORKER_BUILD, mortalWeb: MORTAL_WEB_BUILD } });
     } else if (type === 'stats') {
       reply(true, mems.map(m => m.buffer.byteLength));
     } else if (type === 'analyze') {

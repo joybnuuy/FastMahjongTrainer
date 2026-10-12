@@ -7,10 +7,12 @@
 //  - V1/V4 화면은 준비가 안 됐으면 여기로 돌려보낸다 (core/boot.js)
 //
 // 엔진: 배포된 엔진 목록(model/engines.json)을 카드로 보여 주고, 엔진마다 선택·받기·삭제를 한다.
+(globalThis.__MJP ??= { builds: {} }).builds.menu = '__MJP_BUILD__';   // 빌드 번호(빌드 때 치환)
 import {
   settings, state, onState, connectStore, getRegistry, pickEngineId, installedEngines, isInstalled, wasRemoved,
   useEngine, installEngine, deleteEngine, clearLogCache, resetSettings, clearEverything, pruneOrphanEngines, loadTenhouList,
 } from './provider.js';
+import { mountBuildInfo } from './buildinfo.js';
 
 const ROOT = new URL('../', import.meta.url);        // 사이트 루트
 const $ = id => document.getElementById(id);
@@ -33,6 +35,7 @@ const chosenUi = () => (cfg().ui === 'v1' ? 'v1' : 'v4');
 const openUi = ui => { location.href = new URL(ui + '/', ROOT).href; };
 
 async function main() {
+  mountBuildInfo();     // 푸터에 빌드 번호 표시 (캐시된 이전 버전 확인용)
   let reg = null;
   try { reg = await getRegistry({ fresh: true }); } catch { /* 오프라인 등 → 저장된 기록만으로 판단 */ }
   if (reg) pruneOrphanEngines(reg);   // 엔진 목록에 없는 낡은 모델 캐시 정리 (백그라운드)

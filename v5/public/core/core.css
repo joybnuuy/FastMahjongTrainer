@@ -35,3 +35,8 @@ html[data-ui="v4"] #tabs { flex: 0 1 auto; }
 
 .mjp-select { width: 100%; padding: 7px 9px; border-radius: 6px; border: 1px solid #355848; background: #0e1a15; color: inherit; margin-top: 4px; }
 dialog#mjp-settings button.mjp-danger { border-color: #8a3b3b; color: #ffb4b4; }
+
+/* 빌드 번호 줄 (푸터) */
+.mjp-buildinfo { margin-top: 6px; font-size: 11px; opacity: .6; word-break: break-all; }
+.mjp-buildinfo[data-state="bad"] { opacity: 1; color: #ff9d8a; font-weight: 600; }
+.mjp-buildinfo[data-state="ok"] { color: #9fd4a8; }

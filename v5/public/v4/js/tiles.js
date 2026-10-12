@@ -82,7 +82,30 @@ export function tileEl(kind, { red = false, cls = '' } = {}) {
   d.className = 'tile ' + cls + (red ? ' red' : '');
   d.dataset.kind = kind;
   d.innerHTML = tileSVG(kind, red);
+  markWhileLoading(d);
   return d;
+}
+
+// 패 이미지가 아직 안 왔을 때는 빈 패(백)와 구분되지 않으므로, 도착하기 전에는 로딩 표시를 한다 (.tile.loading).
+// 이미 받은 이미지(READY)는 바로 정상 표시. 받기에 실패하면 .tile.broken(물음표) 로 표시한다.
+const READY = new Set();
+function markWhileLoading(d) {
+  const img = d.querySelector('img');
+  if (!img) return;
+  const src = img.getAttribute('src');
+  if (READY.has(src) || (img.complete && img.naturalWidth > 0)) { READY.add(src); return; }
+  d.classList.add('loading');
+  img.addEventListener('load', () => { READY.add(src); d.classList.remove('loading'); }, { once: true });
+  img.addEventListener('error', () => { d.classList.remove('loading'); d.classList.add('broken'); }, { once: true });
+}
+// 시작할 때 모든 패 이미지를 미리 받아 둔다 (빈 패로 보이는 시간을 줄이고 캐시에 올린다)
+export function preloadTiles() {
+  if (OLD || typeof Image === 'undefined') return;
+  for (let k = 0; k < 34; k++) for (const red of (k === 4 || k === 13 || k === 22) ? [false, true] : [false]) {
+    const src = `tiles/libre/${libreName(k, red)}.svg`, im = new Image();
+    im.onload = () => READY.add(src);
+    im.src = src;
+  }
 }
 export function backEl(cls = '') {
   const d = document.createElement('div');

@@ -2,6 +2,7 @@
 //  1) 준비가 안 됐으면(엔진 준비 기록이 없거나, 데이터 저장소도 파일 모드도 설정 안 됨) 메인 메뉴(사이트 루트)로 돌려보낸다
 //  2) 설정의 화면(ui)이 현재 페이지와 다르면 해당 화면으로 이동
 //  3) 같으면 /api/* 가로채기(provider)와 설정 창을 설치. 새 모델이 배포되었으면 메뉴에서 다시 준비하도록 보낸다
+(globalThis.__MJP ??= { builds: {} }).builds.boot = '__MJP_BUILD__';   // 빌드 번호(빌드 때 치환)
 import { settings, install, fetchEngines, pickEngineId } from './provider.js';
 
 const ROOT = new URL('../', import.meta.url);     // 사이트 루트 = 메인 메뉴 (…/mahjong/)
@@ -43,4 +44,5 @@ if (!setUp) {
   })();
   install({ gate });              // 동기적으로 fetch 를 가로채야 한다 (app.js 의 첫 요청보다 먼저)
   import('./settings-ui.js');
+  import('./buildinfo.js').then(m => m.mountBuildInfo());
 }

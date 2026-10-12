@@ -252,3 +252,9 @@ td.good { color: var(--good); font-weight: 700; }
 
 /* 손패 바의 후로(공개패)가 많아 한 줄에 안 들어가면 줄바꿈 (좁은 화면에서 양옆으로 넘치던 문제) */
 .handbar .melds { flex-wrap: wrap; justify-content: center; max-width: 100%; gap: 6px 8px; }
+
+/* 패 이미지가 도착하기 전: 빈 패(白)와 구분되도록 회색 줄무늬로 로딩 표시, 실패하면 물음표 */
+.tile.loading { background: repeating-linear-gradient(135deg, #c9d1ca 0 5px, #e2e7e1 5px 10px); animation: tilePulse 1s ease-in-out infinite alternate; }
+.tile.loading img { visibility: hidden; }
+.tile.broken::before { content: '?'; position: absolute; inset: 0; display: grid; place-items: center; color: #b3382c; font-weight: 800; font-size: calc(var(--tw) * .6); }
+@keyframes tilePulse { from { opacity: .55; } to { opacity: 1; } }

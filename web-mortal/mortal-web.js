@@ -5,6 +5,7 @@
 
 import { styleQs } from './style-head.js';
 
+export const MORTAL_WEB_BUILD = '__MJP_BUILD__';   // 빌드 때 치환되는 빌드 번호 (개발 중에는 그대로)
 const ACTIONS = 46, OBS_LEN = 1012 * 34, REACH = 37;
 
 // 해당 좌석에게 보이지 않는 정보(타가 손패/쯔모)를 '?'로 가린다.
