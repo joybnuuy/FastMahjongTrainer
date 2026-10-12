@@ -7,7 +7,7 @@ const expect = [
   ['index.html', /text\/html/], ['v4/index.html', /text\/html/], ['v1/index.html', /text\/html/],
   ['v4/style.css', /text\/css/], ['v1/skin.css', /text\/css/], ['core/core.css', /text\/css/],
   ['v4/js/app.js', /javascript/], ['v4/js/table.js', /javascript/], ['v4/js/worker.js', /javascript/], ['v1/js/table-v1.js', /javascript/],
-  ['core/boot.js', /javascript/], ['core/menu.js', /javascript/], ['core/menu.css', /text\/css/], ['core/notebook.js', /javascript/], ['core/idb.js', /javascript/], ['core/engine-worker.js', /javascript/], ['core/engine-client.js', /javascript/], ['core/provider.js', /javascript/], ['core/settings-ui.js', /javascript/], ['core/mortal-web.js', /javascript/],
+  ['core/boot.js', /javascript/], ['core/menu.js', /javascript/], ['core/menu.css', /text\/css/], ['core/notebook.js', /javascript/], ['core/idb.js', /javascript/], ['core/style-head.js', /javascript/], ['core/engine-worker.js', /javascript/], ['core/engine-client.js', /javascript/], ['core/provider.js', /javascript/], ['core/settings-ui.js', /javascript/], ['core/mortal-web.js', /javascript/],
   ['v4/tiles/libre/m1.svg', /image\/svg\+xml/], ['v4/tiles/libre/LICENSE-CC0.txt', null],
   ['vendor/core/mortal_wasm_core.js', /javascript/], ['vendor/core/mortal_wasm_core_bg.wasm', /application\/wasm/],
   ['vendor/ort/ort.wasm.min.mjs', /javascript/], ['vendor/ort/ort-wasm-simd-threaded.mjs', /javascript/], ['vendor/ort/ort-wasm-simd-threaded.wasm', /application\/wasm/],
@@ -39,6 +39,13 @@ try {
     const ok = r.ok && n === info.bytes && /^[0-9a-f]{12}$/.test(info.version) && info.sha256?.startsWith(info.version);
     if (!ok) bad++;
     row(ok ? 'OK ' : 'ERR', String(r.status), (n / 1e6).toFixed(2).padStart(7) + 'MB', `${(performance.now() - t).toFixed(0).padStart(5)}ms`, `model/${info.file}`.padEnd(42), ok ? `크기 일치(${info.bytes}B) v${info.version} · ${info.id}` : `이상: 크기 ${n} vs ${info.bytes}, 버전 ${info.version}`, `encoding=${r.headers.get('content-encoding') || '-'}`);
+    if (info.styles) {   // 스타일 헤드(선택): styles.json 형식과 styles.bin 크기(k*46*4 + k*46*1024*2)
+      const j = await (await fetch(`${base}model/${info.styles.file}?v=${info.version}`)).json();
+      const bin = await fetch(`${base}model/${info.styles.bin}?v=${info.version}`); const nb = (await bin.arrayBuffer()).byteLength;
+      const okS = bin.ok && nb === info.styles.binBytes && nb === j.k * 46 * 4 + j.k * 46 * 1024 * 2 && Array.isArray(j.styles) && j.styles.length > 0 && j.styles.every(x => x.z.length === j.k && x.name);
+      if (!okS) bad++;
+      row(okS ? 'OK ' : 'ERR', String(bin.status), (nb / 1e3).toFixed(0).padStart(7) + 'KB', '     ', `model/${info.styles.bin}`.padEnd(42), okS ? `스타일 ${j.styles.length}개, k=${j.k}` : `스타일 헤드 이상: 크기 ${nb} / 기대 ${info.styles.binBytes}`);
+    }
   }
 } catch (e) { bad++; row('ERR', 'model', e.message); }
 console.log(bad ? `\n문제 ${bad}건` : '\n모두 정상');

@@ -23,6 +23,7 @@ fs.rmSync(DIST, { recursive: true, force: true });
 // 1) 화면(V4 + v1/) 과 코어
 copyTree(SRC, DIST);
 cp(path.join(WM, 'mortal-web.js'), path.join(DIST, 'core', 'mortal-web.js'));
+cp(path.join(WM, 'style-head.js'), path.join(DIST, 'core', 'style-head.js'));
 
 // 2) wasm 인코더 코어
 for (const f of ['mortal_wasm_core.js', 'mortal_wasm_core_bg.wasm']) cp(path.join(WM, 'pkg', f), path.join(DIST, 'vendor', 'core', f));
@@ -70,7 +71,16 @@ regSrc.engines.forEach((e, i) => {
   const sha = crypto.createHash('sha256').update(buf).digest('hex');
   const file = `${e.id}/mortal.onnx`;
   cp(src, path.join(DIST, 'model', file));
-  engines.push({ id: e.id, name: e.name, kind: e.kind || 'base', description: e.description || '', file, version: sha.slice(0, 12), sha256: sha, bytes: buf.length, license: e.license, base: e.base || '', changes: e.changes || '' });
+  // 스타일 헤드(선택): 같은 엔진 폴더에 styles.json + styles.bin 을 둔다. 버전/해시는 모델+스타일을 합쳐서 계산(어느 쪽이 바뀌어도 업데이트로 보이게).
+  let styles = null, all = sha;
+  if (e.styles) {
+    const sj = fs.readFileSync(path.join(ROOT, e.styles, 'styles.json')), sb = fs.readFileSync(path.join(ROOT, e.styles, 'styles.bin'));
+    cp(path.join(ROOT, e.styles, 'styles.json'), path.join(DIST, 'model', e.id, 'styles.json'));
+    cp(path.join(ROOT, e.styles, 'styles.bin'), path.join(DIST, 'model', e.id, 'styles.bin'));
+    all = crypto.createHash('sha256').update(buf).update(sj).update(sb).digest('hex');
+    styles = { file: `${e.id}/styles.json`, bin: `${e.id}/styles.bin`, jsonBytes: sj.length, binBytes: sb.length };
+  }
+  engines.push({ id: e.id, name: e.name, kind: e.kind || 'base', description: e.description || '', file, version: all.slice(0, 12), sha256: all, modelSha256: sha, bytes: buf.length, ...(styles ? { styles } : {}), license: e.license, base: e.base || '', changes: e.changes || '' });
 });
 if (!engines.length) throw new Error('배포할 엔진이 없음');
 if (!engines.some(e => e.id === regSrc.default)) throw new Error('default 엔진이 목록에 없음: ' + regSrc.default);
@@ -83,7 +93,8 @@ const engineNotice = engines.map(e => [
   `### ${e.name}  (id: ${BT}${e.id}${BT})`,
   `- 원본: ${e.base}, ${e.license} — <https://www.apache.org/licenses/LICENSE-2.0>`,
   `- **변경됨(Apache-2.0 §4(b))**: ${BT}model/${e.file}${BT} — ${e.changes}`,
-  `- 파일 sha256: ${BT}${e.sha256}${BT}`,
+  `- 모델 파일 sha256: ${BT}${e.modelSha256}${BT}`,
+  ...(e.styles ? [`- 스타일 헤드(${BT}model/${e.styles.file}${BT}, ${BT}${e.styles.bin}${BT}): 천봉명인전·천봉위 공개 대국으로 학습한 보정 계수(선수/군집의 선호를 Mortal 의 Q 에 더하는 작은 행렬). 대국 데이터와 선수 이름은 포함하지 않으며 채점에는 쓰지 않는 참고 표시용입니다.`] : []),
 ].join('\n')).join('\n\n');
 cp(path.join(ROOT, 'ai', 'Mortal-S42', 'runtime', 'LICENSE'), path.join(DIST, 'LICENSE'));
 fs.writeFileSync(path.join(DIST, 'NOTICE.md'), `# 라이선스 고지 (NOTICE)

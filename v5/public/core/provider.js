@@ -95,6 +95,23 @@ async function getEngineBytes(info) {
   return { bytes, from: 'network' };
 }
 
+// 스타일 헤드(선택 · 참고 표시용): 엔진 항목에 styles 가 있을 때만. IndexedDB 캐시 → 네트워크. 실패해도 엔진은 스타일 없이 동작한다.
+async function getStyleData(info) {
+  if (!info.styles) return null;
+  const key = `model:${info.id}:${info.version}:styles`;
+  try { const c = await DB.get(key); if (c && c.meta && c.bin) return c; } catch { /* 네트워크로 */ }
+  try {
+    const [mj, bb] = await Promise.all([
+      fetch(`${MODEL_DIR}${info.styles.file}?v=${info.version}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch(`${MODEL_DIR}${info.styles.bin}?v=${info.version}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }),
+    ]);
+    if (bb.byteLength !== info.styles.binBytes) throw new Error('styles.bin 크기 불일치');
+    const data = { meta: mj, bin: new Uint8Array(bb) };
+    try { await DB.set(key, data); } catch { /* 저장 실패해도 계속 */ }
+    return data;
+  } catch (e) { console.warn('스타일 헤드를 받지 못해 스타일 참고 없이 진행합니다:', e.message); return null; }
+}
+
 // 모바일에서 wasm 메모리를 못 잡으면 "no available backend found … RangeError: Out of memory" 처럼 알아보기 어려운 오류가 난다.
 // 원인은 보통 이 기기/브라우저가 한 탭에 허락하는 메모리 한도(다른 탭·앱, 이전 화면이 아직 메모리를 쥐고 있는 경우)라서 안내를 붙인다.
 function friendlyEngineError(e) {
@@ -134,10 +151,12 @@ export async function ensureEngine(wanted, { allowDownload = false } = {}) {
       const t0 = performance.now();
       state.engineId = id; state.engine = 'loading'; state.engineMsg = '엔진 준비 중…'; emit();
       const { bytes, from } = await getEngineBytes(info);
+      const style = await getStyleData(info);
       state.engineMsg = '엔진 시작 중…'; emit();
       // onnxruntime + wasm 인코더는 전용 워커 안에서 돌린다 (종료하면 메모리가 확실히 돌아온다). 모델 바이트는 복사해서 넘긴다.
-      const web = await RemoteMortal.create({ model: bytes.slice(), ortUrl: ORT_BASE + 'ort.wasm.min.mjs', ortBase: ORT_BASE, coreJs: CORE_JS, coreWasm: CORE_WASM });
-      state.engine = 'ready'; state.engineId = id; state.model = { ...info, from, loadMs: Math.round(performance.now() - t0) };
+      const web = await RemoteMortal.create({ model: bytes.slice(), ortUrl: ORT_BASE + 'ort.wasm.min.mjs', ortBase: ORT_BASE, coreJs: CORE_JS, coreWasm: CORE_WASM, style: style && { meta: style.meta, bin: style.bin.slice() } });
+      state.engine = 'ready'; state.engineId = id; state.styleMeta = style ? style.meta.styles.map(s => ({ id: s.id, name: s.name, desc: s.desc })) : null;
+      state.model = { ...info, from, loadMs: Math.round(performance.now() - t0) };
       state.engineMsg = `${info.name} 준비됨 (${from === 'cache' ? '캐시' : '내려받음'}, ${state.model.loadMs}ms)`;
       markInstalled(info);      // 이 버전의 엔진이 이 브라우저에서 실제로 동작함을 기록
       emit();
@@ -158,13 +177,14 @@ export async function installEngine(id, { start = false } = {}) {
     return;
   }
   await getEngineBytes(info);
+  await getStyleData(info);
   state.engine = state.model ? 'ready' : 'idle'; state.engineMsg = ''; emit();
   markInstalled(info); emit();
 }
 
 // 엔진 목록에 없는 모델 캐시 정리: 단일 엔진 시절의 'model:<버전>', 목록에서 사라진 엔진, 낡은 버전의 캐시. 지운 개수를 돌려준다.
 export async function pruneOrphanEngines(reg) {
-  const keep = new Set(reg.engines.map(e => `model:${e.id}:${e.version}`));
+  const keep = new Set(reg.engines.flatMap(e => [`model:${e.id}:${e.version}`, `model:${e.id}:${e.version}:styles`]));
   let n = 0;
   try {
     for (const k of await DB.keys()) if (typeof k === 'string' && k.startsWith('model:') && !keep.has(k)) { await DB.del(k); n++; }
@@ -425,9 +445,9 @@ async function analyze(xml) {
   const points = {};
   for (const p of pts) {
     const r = byKey.get(`${p.seat}:${idxOf(p)}`);
-    if (r && r.q) points[p.key] = { seat: p.seat, mode: p.mode, q: r.q, mask: String(r.mask), reach: r.reach && { q: r.reach.q, mask: String(r.reach.mask) } };
+    if (r && r.q) points[p.key] = { seat: p.seat, mode: p.mode, q: r.q, mask: String(r.mask), reach: r.reach && { q: r.reach.q, mask: String(r.reach.mask), ...(r.reach.styles ? { styles: r.reach.styles } : {}) }, ...(r.styles ? { styles: r.styles } : {}) };
   }
-  return { model: state.model?.name || engineId, engine: engineId, ver: 2, points };
+  return { model: state.model?.name || engineId, engine: engineId, ver: 2, points, ...(state.styleMeta ? { styleMeta: state.styleMeta } : {}) };
 }
 
 export async function getGame(id) {

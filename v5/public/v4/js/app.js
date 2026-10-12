@@ -1,4 +1,4 @@
-import { gradeAi } from './aiutil.js';
+import { gradeAi, findOpt } from './aiutil.js';
 import { tileEl } from './tiles.js';
 import { renderTable, renderHandBar } from './table.js';
 import { explainEff, explainDef, explainTenpaiPlayer } from './explain.js';
@@ -165,7 +165,10 @@ function discardControls() {
 function quickPicks(q) {
   if (mode === 'tenpai' || mode === 'danger' || !q.opts?.length) return null;
   const o = q.opts, sh = x => x.sh ?? x.shanten, top = o[0];
-  const out = { ai: { kind: top.kind, red: !!top.red, p: q.ai ? top.p : null }, pro: q.actual };
+  // AI 선택지: Q 격차 0.1 이내는 모두 'A'(◎로 판정되는 범위), 0.7 이내는 흐린 'A'(○ 범위). 적도라/일반패가 나뉜 종류는 따로 센다.
+  const aiSel = x => ({ kind: x.kind, red: !!x.red, split: !!x.split });
+  const strong = o.filter(x => x.gap <= 0.1).map(aiSel), soft = o.filter(x => x.gap > 0.1 && x.gap <= 0.7).map(aiSel);
+  const out = { ai: { kind: top.kind, red: !!top.red, p: q.ai ? top.p : null }, aiAll: q.ai ? strong : [aiSel(top)], aiSoft: q.ai ? soft : [], pro: { kind: q.actual, red: !!q.actualRed, split: o.some(x => x.split && x.kind === q.actual), id: q.actualId } };
   if (mode === 'eff') {
     const minSh = Math.min(...o.map(sh));
     const cand = o.filter(x => sh(x) === minSh);
@@ -180,15 +183,17 @@ function quickPicks(q) {
 }
 function quickRow(q, qp) {
   const row = el('div', 'quick');
-  const chip = (cls, label, kinds, extra, red) => {
+  // items: [{kind, red}] (적도라 표시까지 포함) 또는 종류 번호 배열
+  const chip = (cls, label, items, extra) => {
     const c = el('div', 'qchip ' + cls);
     c.append(el('span', 'ql', label));
-    kinds.slice(0, 4).forEach(k => c.append(tile(k, { cls: 't-qc', red: !!red && k === kinds[0] })));
-    if (kinds.length > 4) c.append(el('span', 'qx', '+' + (kinds.length - 4)));
+    const list = items.map(x => (typeof x === 'number' ? { kind: x, red: false } : x));
+    list.slice(0, 4).forEach(x => c.append(tile(x.kind, { cls: 't-qc', red: !!x.red })));
+    if (list.length > 4) c.append(el('span', 'qx', '+' + (list.length - 4)));
     if (extra) c.append(el('span', 'qx', extra));
     return c;
   };
-  row.append(chip('ai', q.ai ? 'AI' : '추천', [qp.ai.kind], qp.ai.p != null ? Math.round(qp.ai.p * 100) + '%' : '', qp.ai.red));
+  row.append(chip('ai', q.ai ? 'AI' : '추천', qp.aiAll, qp.ai.p != null ? Math.round(qp.ai.p * 100) + '%' : ''));
   row.append(chip('pro', '고수', [qp.pro], ''));
   if (qp.eff) row.append(chip('eff', '효율', qp.eff.kinds, `${qp.eff.sh <= 0 ? '' : qp.eff.sh + '샨텐 '}${qp.eff.ue}장`));
   if (qp.safe) row.append(chip('eff', '최안전', qp.safe.kinds, (qp.safe.est * 100).toFixed(1) + '%'));
@@ -196,14 +201,22 @@ function quickRow(q, qp) {
 }
 // 손패 바의 해당 패 위에 배지 (AI / 고수 / 효율·안전)
 function badgeHand(qp) {
-  const marks = {};
-  const add = (k, tag, cls) => { (marks[k] ||= []).push([tag, cls]); };
-  add(qp.ai.kind, 'A', 'ai'); add(qp.pro, '고', 'pro'); // 한 글자 원형 배지 (아래 칩의 색과 대응: 파랑=AI, 주황=고수, 초록=효율/안전)
-  (qp.eff?.kinds || []).forEach(k => add(k, '효', 'eff'));
-  (qp.safe?.kinds || []).forEach(k => add(k, '안', 'eff'));
+  const marks = {}, idMarks = {};
+  // 적도라와 일반패를 둘 다 들고 있는 종류(split)는 배지도 해당 패(적도라/일반)에만 붙인다
+  const keyOf = (kind, red, split) => split ? `${kind}${red ? 'r' : 'n'}` : String(kind);
+  const add = (x, tag, cls) => { (marks[keyOf(x.kind, x.red, x.split)] ||= []).push([tag, cls]); };
+  const addKind = (k, tag, cls) => { (marks[String(k)] ||= []).push([tag, cls]); };
+  (qp.aiSoft || []).forEach(x => add(x, 'A', 'ai soft'));   // 0.7 이내: 흐린 A
+  (qp.aiAll || [qp.ai]).forEach(x => add(x, 'A', 'ai'));     // 0.1 이내: 진한 A
+  // 고수 배지는 실제로 버린 그 한 장에만 붙인다 (같은 패가 두 장일 때 쯔모패/손패 구분, 적도라 구분). id 를 모르는 옛 문제는 종류 단위.
+  if (qp.pro.id != null) idMarks[qp.pro.id] = [['고', 'pro']]; else add(qp.pro, '고', 'pro'); // 한 글자 원형 배지 (아래 칩의 색과 대응: 파랑=AI, 주황=고수, 초록=효율/안전)
+  (qp.eff?.kinds || []).forEach(k => addKind(k, '효', 'eff'));
+  (qp.safe?.kinds || []).forEach(k => addKind(k, '안', 'eff'));
+  const splitKinds = new Set([...(qp.aiAll || []), ...(qp.aiSoft || []), qp.pro].filter(x => x.split).map(x => x.kind));
   document.querySelectorAll('#handwrap .tile').forEach(t => {
-    const m = marks[+t.dataset.kind];
-    if (!m) return;
+    const kind = +t.dataset.kind, id = +t.dataset.id;
+    const m = [...(marks[String(kind)] || []), ...(splitKinds.has(kind) ? (marks[keyOf(kind, isRed(id), true)] || []) : []), ...(idMarks[id] || [])];
+    if (!m.length) return;
     const w = el('div', 'bdgs');
     m.forEach(([tag, cls]) => w.append(el('span', 'bdg ' + cls, tag)));
     t.append(w);
@@ -238,26 +251,47 @@ const pctS = x => (x * 100).toFixed(x < 0.1 ? 1 : 0) + '%';
 const probBar = p => `<span class="bar ai" style="width:${Math.round(p * 100)}px"></span>${pctS(p)}`;
 const BADGE = { best: '◎ Mortal과 같은 선택', ok: '○ 허용 범위 (Mortal도 꽤 고려하는 패)', bad: '× Mortal은 선호하지 않는 선택' };
 
-function effFeedbackAi(q, kind) {
-  const grade = gradeAi(q.opts, kind);
-  const best = q.opts[0], mine = q.opts.find(o => o.kind === kind);
+// 스타일 참고: 스타일 헤드(성향 프로필)가 같은 지점을 어떻게 보는지. 참고 표시일 뿐 채점에는 쓰지 않는다.
+function styleRefNode(q, kind, red) {
+  if (!q.styles || !q.styles.length) return null;
+  const box = el('div', 'stylebox');
+  box.append(el('div', 'stitle', '스타일 참고 <span class="muted">· 채점에는 반영되지 않습니다</span>'));
+  for (const s of q.styles) {
+    const mine = findOpt(s.opts, kind, red), idx = s.opts.indexOf(mine), top = s.opts[0];
+    const row = el('div', 'srow');
+    row.append(el('b', '', s.name));
+    const rec = el('span', 'srec'); rec.append('추천 ', tile(top.kind, { cls: 't-river', red: top.red }));
+    row.append(rec, el('span', mine && idx === 0 ? 'ok' : 'muted', mine ? (idx === 0 ? '내 선택과 같음 ★' : `내 선택 ${idx + 1}위 (격차 -${mine.gap.toFixed(2)})`) : ''));
+    box.append(row);
+    if (s.desc) box.append(el('div', 'sdesc muted', s.desc));
+  }
+  return box;
+}
+
+// 실제 플레이어가 쯔모패를 그대로 버렸는지(쯔모기리) 손패에서 버렸는지 (천봉 로그에 있는 정보: 버린 패 id 가 쯔모한 패 id 와 같은지)
+const tgTag = q => (q.actualId == null || q.drawn == null) ? '' : q.actualId === q.drawn ? ' (쯔모기리)' : ' (손패에서)';
+function effFeedbackAi(q, kind, id) {
+  const red = id != null && isRed(id);
+  const grade = gradeAi(q.opts, kind, red);
+  const best = q.opts[0], mine = findOpt(q.opts, kind, red);
+  const isAct = o => o.kind === q.actual && (!o.split || o.red === !!q.actualRed);
   const minSh = q.opts.reduce((m, x) => Math.min(m, x.sh), 9);
   const tbl = el('table');
   tbl.innerHTML = '<tr><th>버림</th><th>Mortal 선택 확률</th><th>Q 격차</th><th>효율</th><th></th></tr>';
   for (const o of q.opts) {
-    if (o.p < 0.005 && o.kind !== kind && o.kind !== q.actual) continue;
-    const tr = el('tr', (o.kind === kind ? 'mine ' : '') + (o.kind === q.actual ? 'act' : ''));
+    if (o.p < 0.005 && o !== mine && !isAct(o)) continue;
+    const tr = el('tr', (o === mine ? 'mine ' : '') + (isAct(o) ? 'act' : ''));
     const t0 = el('td'); t0.append(tile(o.kind, { cls: 't-river', red: o.red }));
     tr.append(t0, el('td', '', probBar(o.p)), el('td', 'muted', o.gap === 0 ? '—' : '-' + o.gap.toFixed(2)),
       el('td', 'muted', `${shLabel(o.sh)}${o.sh === minSh ? ' · ' + o.ue + '장' : ''}`),
-      el('td', 'muted', (o.rank === 0 ? '★ Mortal 추천' : '') + (o.kind === kind ? ' · 내 선택' : '') + (o.kind === q.actual ? ' · 실제 플레이어' : '')));
+      el('td', 'muted', (o.rank === 0 ? '★ Mortal 추천' : '') + (o === mine ? ' · 내 선택' + (id != null && id === q.drawn ? ' (쯔모패)' : '') : '') + (isAct(o) ? ' · 실제 플레이어' + tgTag(q) : '')));
     tbl.append(tr);
   }
   const ban = el('div', `banner ${grade}`, BADGE[grade]);
   const lines = [`내 선택 확률 ${pctS(mine.p)} (Q 격차 -${mine.gap.toFixed(2)}) · Mortal 추천 ${pctS(best.p)}`];
   if (q.pReach >= 0.05) lines.push(`이 손에서 Mortal은 <b>리치</b>를 ${pctS(q.pReach)} 확률로 선택합니다 (확률은 리치/다마 합산).`);
   const note = el('div', 'note', `${lines.join('<br>')}<br>Mortal S42 (Q값을 softmax 변환한 확률). Q 격차 0.1 이내 ◎, 0.7 이내 ○. ${gameLink(q)}`);
-  return { grade, nodes: [ban, tbl, note] };
+  return { grade, nodes: [ban, tbl, styleRefNode(q, kind, red), note].filter(Boolean) };
 }
 
 function riichersBox(q) {
@@ -271,25 +305,27 @@ function riichersBox(q) {
   return rv;
 }
 
-function defFeedbackAi(q, kind) {
-  const grade = gradeAi(q.opts, kind);
-  const mine = q.opts.find(o => o.kind === kind);
+function defFeedbackAi(q, kind, id) {
+  const red = id != null && isRed(id);
+  const grade = gradeAi(q.opts, kind, red);
+  const mine = findOpt(q.opts, kind, red);
+  const isAct = o => o.kind === q.actual && (!o.split || o.red === !!q.actualRed);
   const tbl = el('table');
   tbl.innerHTML = '<tr><th>버림</th><th>Mortal 선택 확률</th><th>추정 방총률</th><th>근거</th><th>실제</th></tr>';
   for (const o of q.opts) {
-    if (o.p < 0.005 && o.kind !== kind && o.kind !== q.actual && !o.ron) continue;
-    const tr = el('tr', (o.kind === kind ? 'mine ' : '') + (o.kind === q.actual ? 'act' : ''));
+    if (o.p < 0.005 && o !== mine && !isAct(o) && !o.ron) continue;
+    const tr = el('tr', (o === mine ? 'mine ' : '') + (isAct(o) ? 'act' : ''));
     const t0 = el('td'); t0.append(tile(o.kind, { cls: 't-river', red: o.red }));
     tr.append(t0, el('td', '', probBar(o.p) + (o.rank === 0 ? ' <span class="muted">★</span>' : '')),
       el('td', 'muted', (o.est * 100).toFixed(1) + '%'),
       el('td', '', o.tags.map(t => `<span class="tag">${t}</span>`).join('') || '<span class="muted">정보 없음</span>'),
-      el('td', '', (o.ron ? '<span class="tag ron">론!</span>' : '<span class="muted">안전</span>') + (o.kind === q.actual ? ' <span class="muted">· 실제 플레이어</span>' : '')));
+      el('td', '', (o.ron ? '<span class="tag ron">론!</span>' : '<span class="muted">안전</span>') + (isAct(o) ? ' <span class="muted">· 실제 플레이어' + tgTag(q) + '</span>' : '')));
     tbl.append(tr);
   }
   const ban = el('div', `banner ${grade}`, BADGE[grade] + (mine.ron ? ' — 단, 이 패는 실제로 론 당합니다 💥' : ''));
   const rv = riichersBox(q);
   rv.append(el('div', 'note', `리치자의 손패는 테이블에서 공개했습니다. 내 손패는 ${shLabel(q.myShanten)}. Mortal은 밀기/접기까지 포함해 판단합니다(★ = Mortal 추천). ${gameLink(q)}`));
-  return { grade, nodes: [ban, tbl, rv] };
+  return { grade, nodes: [ban, tbl, styleRefNode(q, kind, red), rv].filter(Boolean) };
 }
 
 function revealRiichers(q) {
@@ -304,7 +340,7 @@ function showEff(q) {
     if (answered) return;
     node.classList.add('pick');
     if (q.ai) {
-      const r = effFeedbackAi(q, kind), ex = explainEff(q, kind, id);
+      const r = effFeedbackAi(q, kind, id), ex = explainEff(q, kind, id);
       r.nodes.push(ex); finish(r.grade, r.nodes, { pick: kind });
       const slot = ex.querySelector('.ev-slot');
       callJob('eff', q, [kind, q.opts[0].kind, q.actual]).then(res => fillEffEv(slot, q, res, kind), err => { slot.textContent = '계산 실패: ' + err.message; });
@@ -351,7 +387,7 @@ function showDef(q) {
     node.classList.add('pick');
     revealRiichers(q);
     if (q.ai) {
-      const r = defFeedbackAi(q, kind), ex = explainDef(q, kind, id);
+      const r = defFeedbackAi(q, kind, id), ex = explainDef(q, kind, id);
       r.nodes.push(ex); finish(r.grade, r.nodes, { pick: kind });
       const slot = ex.querySelector('.ev-slot');
       callJob('def', q, [kind, q.actual]).then(res => fillPushFold(slot, q, res, kind), err => { slot.textContent = '계산 실패: ' + err.message; });

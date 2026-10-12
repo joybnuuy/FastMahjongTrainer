@@ -239,3 +239,16 @@ td.good { color: var(--good); font-weight: 700; }
 @media (max-width: 600px) { #tabs { gap: 4px; } #tabs button { padding: 6px 9px; font-size: 13px; } }
 @media (max-width: 600px) { #tabs button { padding: 6px 8px; } #statline { font-size: 12px; } }
 @media (max-width: 600px) { #tabs { flex: none; } #statline { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; } }
+.bdg.soft { opacity: .5; }  /* AI 허용 범위(Q 격차 0.7 이내): 흐린 A */
+
+/* 스타일 참고(참고용 표시) */
+.stylebox { margin: 10px 0; padding: 8px 10px; border: 1px dashed var(--line, #3a4a40); border-radius: 8px; }
+.stylebox .stitle { font-weight: 600; margin-bottom: 6px; }
+.stylebox .srow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 6px; }
+.stylebox .srow b { min-width: 3.2em; }
+.stylebox .srec { display: inline-flex; align-items: center; gap: 4px; }
+.stylebox .srec .t-river { --tw: 22px; }
+.stylebox .sdesc { font-size: 0.82em; margin: 0 0 2px 0; }
+
+/* 손패 바의 후로(공개패)가 많아 한 줄에 안 들어가면 줄바꿈 (좁은 화면에서 양옆으로 넘치던 문제) */
+.handbar .melds { flex-wrap: wrap; justify-content: center; max-width: 100%; gap: 6px 8px; }

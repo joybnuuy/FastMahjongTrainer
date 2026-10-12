@@ -124,8 +124,10 @@ export function explainEff(q, chosenKind, chosenId) {
   const redOf = k => q.opts.find(o => o.kind === k)?.red ?? false;
   const mine = analyzeOption(q, chosenKind, isRed(chosenId));
   const roles = [{ role: '내 선택', a: mine, kind: chosenKind }];
-  if (best.kind !== chosenKind) roles.push({ role: 'Mortal 추천', a: analyzeOption(q, best.kind, redOf(best.kind)), kind: best.kind });
-  if (q.actual !== chosenKind && q.actual !== best.kind && actualOpt) roles.push({ role: '실제 플레이어', a: analyzeOption(q, q.actual, redOf(q.actual)), kind: q.actual });
+  // 적도라/일반패가 나뉜 종류는 같은 종류여도 다른 복사본을 고른 것이면 'Mortal 추천'이 따로 있는 것으로 본다
+  const sameAsBest = best.kind === chosenKind && (!best.split || best.red === isRed(chosenId));
+  if (!sameAsBest) roles.push({ role: 'Mortal 추천', a: analyzeOption(q, best.kind, redOf(best.kind)), kind: best.kind });
+  if (q.actual !== chosenKind && q.actual !== best.kind && actualOpt) roles.push({ role: '실제 플레이어', a: analyzeOption(q, q.actual, q.actualRed ?? redOf(q.actual)), kind: q.actual });
   else if (q.actual === best.kind || q.actual === chosenKind) roles.forEach(r => { if (r.kind === q.actual) r.role += ' · 실제 플레이어와 동일'; });
 
   // 요약 문장

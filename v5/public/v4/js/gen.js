@@ -35,7 +35,7 @@ function effQuestion(st, ev, me, meta) {
   if (opts.filter(o => o.shanten === minS).length < 3) return null; // 너무 뻔한 문제 제외
   return {
     mode: 'eff', meta, view: publicView(st, me), hand: hand.slice(), drawn: st.drawn[me],
-    actual: ev.tile >> 2, turn: st.rivers[me].length + 1, unseen,
+    actual: ev.tile >> 2, actualId: ev.tile, turn: st.rivers[me].length + 1, unseen,
     opts: opts.map(o => ({ kind: o.kind, shanten: o.shanten, ue: o.ue, draws: o.draws, next: o.next ?? null, rank: o.rank, deep: !!o.deep })),
   };
 }
@@ -67,7 +67,7 @@ function defQuestion(st, ev, me, meta) {
   if (safeOpts === opts.length) return null;
   return {
     mode: 'def', meta, view: publicView(st, me), hand: hand.slice(), drawn: st.drawn[me],
-    actual: ev.tile >> 2, myShanten: minS,
+    actual: ev.tile >> 2, actualId: ev.tile, myShanten: minS,
     riichers: infos.map(i => ({ r: i.r, waits: i.waits, furiten: i.furiten, hand: st.hands[i.r].slice() })),
     opts,
   };
@@ -91,9 +91,23 @@ function tenpaiQuestion(st, ev, me, meta) {
 }
 
 
+// ---- 스타일 참고: 같은 지점에서 스타일 헤드가 낸 Q 로 만든 선택지 (참고 표시 전용, 채점에는 쓰지 않는다) ----
+function styleViews(pt, hand, styleMeta) {
+  if (!pt.styles) return null;
+  const out = [];
+  for (const [id, q] of Object.entries(pt.styles)) {
+    const rq = pt.reach && pt.reach.styles && pt.reach.styles[id];
+    const b = buildOptions({ mask: pt.mask, q, reach: rq ? { mask: pt.reach.mask, q: rq } : undefined }, hand);
+    if (!b) continue;
+    const m = (styleMeta || []).find(x => x.id === id) || {};
+    out.push({ id, name: m.name || id, desc: m.desc || '', pReach: b.pReach, opts: b.opts.map(o => ({ kind: o.kind, red: o.red, split: !!o.split, gap: o.gap, p: o.p })) });
+  }
+  return out.length ? out : null;
+}
+
 // ---- Mortal 기반 문제 (pt = 서버가 계산한 해당 지점의 Q값) ----
-function effQuestionAi(st, ev, me, meta, pt) {
-  const built = buildOptions(pt);
+function effQuestionAi(st, ev, me, meta, pt, styleMeta) {
+  const built = buildOptions(pt, st.hands[me]);
   if (!built) return null;
   if (!built.opts.every(o => st.hands[me].some(t => t >> 2 === o.kind))) return null; // 캐시가 로그와 어긋난 경우 방어
   const hand = st.hands[me], c14 = countsOf(hand), nm = st.melds[me].length;
@@ -106,12 +120,13 @@ function effQuestionAi(st, ev, me, meta, pt) {
   if (opts[0].p >= 0.9 && opts[0].kind === actual) return null; // 너무 뻔한 문제 제외
   return {
     mode: 'eff', ai: true, meta, view: publicView(st, me), hand: hand.slice(), drawn: st.drawn[me],
-    actual, turn: st.rivers[me].length + 1, opts, pReach: built.pReach, unseen,
+    actual, actualId: ev.tile, actualRed: isRed(ev.tile), turn: st.rivers[me].length + 1, opts, pReach: built.pReach, unseen,
+    styles: styleViews(pt, hand, styleMeta),
   };
 }
 
-function defQuestionAi(st, ev, me, meta, pt) {
-  const built = buildOptions(pt);
+function defQuestionAi(st, ev, me, meta, pt, styleMeta) {
+  const built = buildOptions(pt, st.hands[me]);
   if (!built) return null;
   if (!built.opts.every(o => st.hands[me].some(t => t >> 2 === o.kind))) return null;
   const riichers = [0, 1, 2, 3].filter(p => p !== me && st.riichi[p]);
@@ -132,7 +147,8 @@ function defQuestionAi(st, ev, me, meta, pt) {
   });
   return {
     mode: 'def', ai: true, meta, view: publicView(st, me), hand: hand.slice(), drawn: st.drawn[me],
-    actual: ev.tile >> 2, myShanten: Math.min(...opts.map(o => o.sh)), pReach: built.pReach,
+    actual: ev.tile >> 2, actualId: ev.tile, actualRed: isRed(ev.tile), myShanten: Math.min(...opts.map(o => o.sh)), pReach: built.pReach,
+    styles: styleViews(pt, hand, styleMeta),
     riichers: infos.map(i => ({ r: i.r, waits: i.waits, furiten: i.furiten, hand: st.hands[i.r].slice(), dealer: i.dealer, riichiTurn: i.riichiTurn, own: [...i.own], passed: [...i.passed] })),
     unseen: vis.map(v => 4 - v), opts,
   };
@@ -173,7 +189,7 @@ export function generate(xml, id, ai) {
         if (ev.t !== 'discard') return;
         const pt = useAi && ai.points[`${r}:${i}`];
         if (pt && pt.seat === ev.p) {
-          const q = pt.mode === 'eff' ? effQuestionAi(st, ev, ev.p, meta, pt) : defQuestionAi(st, ev, ev.p, meta, pt);
+          const q = pt.mode === 'eff' ? effQuestionAi(st, ev, ev.p, meta, pt, ai.styleMeta) : defQuestionAi(st, ev, ev.p, meta, pt, ai.styleMeta);
           if (q) { q.key = `${meta.id}:${r}:${i}`; out[pt.mode].push(q); }  // key = 오답노트용 안정 ID
         }
         if (wantEff.has(st.seq) && effGot < 2) {

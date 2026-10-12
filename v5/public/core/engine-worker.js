@@ -2,6 +2,7 @@
 // wasm 메모리는 한 번 커지면 줄지 않으므로, 메모리를 확실히 돌려주려면 워커를 종료(terminate)해야 한다.
 // (ort 의 proxy 워커는 외부에서 종료할 수 없어서 직접 워커를 둔다.) 화면을 떠나거나 엔진을 바꿀 때 메인이 이 워커를 종료한다.
 import { MortalWeb } from './mortal-web.js';
+import { parseStyleHead } from './style-head.js';
 
 // WebKit(iOS/macOS Safari 및 iOS 의 모든 브라우저) 버그 대응: WebAssembly.Memory 를 만든 직후 .buffer 를 한 번 읽어 두면
 // 페이지를 오갈 때 메모리가 해제되지 않고 쌓여 "RangeError: Out of memory" 가 나는 문제가 사라진다는 보고가 있다
@@ -33,7 +34,8 @@ self.onmessage = async ({ data }) => {
       ort.env.wasm.proxy = false;       // 이 워커가 이미 메인 스레드와 분리되어 있다
       const core = await import(data.coreJs);
       await core.default({ module_or_path: data.coreWasm });
-      web = await MortalWeb.create({ ort, core, model: data.model });
+      const styleHead = data.style ? parseStyleHead(data.style.meta, data.style.bin) : null;
+      web = await MortalWeb.create({ ort, core, model: data.model, styleHead });
       reply(true, null);
     } else if (type === 'stats') {
       reply(true, mems.map(m => m.buffer.byteLength));

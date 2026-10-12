@@ -55,3 +55,8 @@ html[data-ui="v1"] .v1reveal[hidden] { display: none; }
 html[data-ui="v1"] .v1reveal .tile { margin: 0 1px 2px; }
 html[data-ui="v1"] .v1rlabel { font-size: 12px; color: var(--accent); margin-right: 8px; align-self: center; }
 @media (max-width: 600px) { html[data-ui="v1"] .v1seat { grid-template-columns: 1fr; } html[data-ui="v1"] .v1who br { display: none; } }
+
+/* 손패 바: 후로(공개패)가 많아 한 줄에 다 안 들어가면 줄바꿈 (좁은 화면에서 카드 밖으로 넘치던 문제) */
+html[data-ui="v1"] .handbar { max-width: 100%; justify-content: flex-start; }
+html[data-ui="v1"] .handbar .hrow { flex-wrap: wrap; justify-content: flex-start; max-width: 100%; }
+html[data-ui="v1"] .handbar .melds { flex-wrap: wrap; justify-content: flex-start; max-width: 100%; gap: 8px 10px; padding: 0 4px; }
